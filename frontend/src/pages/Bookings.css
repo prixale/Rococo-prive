@@ -1,0 +1,84 @@
+.bookings-page {
+  padding-top: 140px;
+  padding-bottom: 80px;
+  display: flex;
+  justify-content: center;
+}
+
+.bookings-card {
+  max-width: 800px;
+  width: 100%;
+  padding: 60px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.indicator {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-gold);
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+}
+
+.bookings-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 15px;
+}
+
+.bookings-header p {
+  color: #8E8E93;
+  margin-bottom: 50px;
+}
+
+.bookings-form {
+  text-align: left;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #BFBFBF;
+}
+
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: white;
+  outline: none;
+}
+
+.btn-book-now {
+  width: 100%;
+  background: var(--color-gold);
+  color: black;
+  padding: 18px;
+  border-radius: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-top: 20px;
+}
+
+.security-badges {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  font-size: 0.8rem;
+  color: #636366;
+}
