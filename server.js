@@ -39,6 +39,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Rococo Privé API',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.post('/api/mercadopago/create-preference', async (req, res) => {
   try {
     const { plan, price, email, name } = req.body;
@@ -164,14 +172,6 @@ app.get('/api/mercadopago/pending', (req, res) => {
   });
 });
 
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Rococo Privé API',
-    status: 'running',
-    timestamp: new Date().toISOString()
-  });
-});
-
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({ 
@@ -180,9 +180,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('═══════════════════════════════════════════');
   console.log('🎭 ROCOCO PRIVÉ - SERVIDOR DE PAGOS');
   console.log('═══════════════════════════════════════════');
