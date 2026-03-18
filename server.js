@@ -15,7 +15,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const MERCADO_PAGO_CONFIG = {
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN,
-  mode: process.env.MERCADO_PAGO_MODE || 'production'
+  mode: 'production'
 };
 
 const PLANS = {
@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    mode: MERCADO_PAGO_CONFIG.mode === 'production' ? 'production' : 'development',
+    mode: 'production',
     mercadopago: MERCADO_PAGO_CONFIG.accessToken ? 'configured' : 'not_configured',
-    mercadopago_mode: MERCADO_PAGO_CONFIG.mode
+    mercadopago_mode: 'production'
   });
 });
 
@@ -187,6 +187,6 @@ app.listen(PORT, () => {
   console.log('🎭 ROCOCO PRIVÉ - SERVIDOR DE PAGOS');
   console.log('═══════════════════════════════════════════');
   console.log(`📡 Servidor corriendo en puerto ${PORT}`);
-  console.log(`💳 Mercado Pago: ${MERCADO_PAGO_CONFIG.mode === 'production' ? 'PRODUCCIÓN' : 'TEST'}`);
+  console.log(`💳 Mercado Pago: PRODUCCIÓN`);
   console.log('═══════════════════════════════════════════');
 });
