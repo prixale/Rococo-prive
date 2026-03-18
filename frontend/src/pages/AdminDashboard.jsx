@@ -3,6 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaUsers, FaGem, FaChartLine, FaMoneyBillWave, FaCog, FaCheckCircle, FaTimesCircle, FaSignOutAlt } from 'react-icons/fa';
 import './AdminDashboard.css';
 
+const MOCK_STATS = {
+  revenue: 14500,
+  activeProfiles: 42,
+  newMemberships: 15,
+  pendingProfiles: 8
+};
+
+const INITIAL_COMMISSIONS = [
+  { id: 1, type: "Escort Verification", percentage: 15, basePrice: 100 },
+  { id: 2, type: "VIP Membership", percentage: null, basePrice: 500 },
+  { id: 3, type: "Premium Profile Placement", percentage: 20, basePrice: 250 },
+  { id: 4, type: "Bookings Cut", percentage: 10, basePrice: null }
+];
+
 const AdminDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(MOCK_STATS);
