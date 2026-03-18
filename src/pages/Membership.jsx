@@ -182,7 +182,7 @@ const Membership = ({ onNavigate }) => {
       setShowPayment(true);
     } else {
       setSelectedPlan(plan);
-      setShowStripeCheckout(true);
+      setShowMercadoPagoCheckout(true);
     }
   };
 
@@ -236,7 +236,7 @@ const Membership = ({ onNavigate }) => {
     };
     localStorage.setItem(`rococo_data_${userEmail}`, JSON.stringify(initialData));
     
-    setShowStripeCheckout(false);
+    setShowMercadoPagoCheckout(false);
     setPaymentSuccess(true);
     
     setTimeout(() => {
@@ -245,7 +245,7 @@ const Membership = ({ onNavigate }) => {
   };
 
   const handlePaymentCancel = () => {
-    setShowStripeCheckout(false);
+    setShowMercadoPagoCheckout(false);
   };
 
   const processPayment = () => {
