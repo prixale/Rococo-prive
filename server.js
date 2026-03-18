@@ -76,49 +76,57 @@ app.post('/api/mercadopago/create-preference', async (req, res) => {
       });
     }
 
-    const MercadoPago = require('mercadopago');
-    MercadoPago.configure({
-      access_token: MERCADO_PAGO_CONFIG.accessToken
-    });
+    try {
+      const mercadopago = await import('mercadopago');
+      mercadopago.configure({
+        access_token: MERCADO_PAGO_CONFIG.accessToken
+      });
 
-    const preference = {
-      items: [
-        {
-          id: `rococo_${plan}_${Date.now()}`,
-          title: `Membresía ${PLANS[plan]?.name || 'Premium'} - Rococo Privé`,
-          description: `Acceso a membresía ${PLANS[plan]?.name} con ${PLANS[plan]?.photos} fotos y ${PLANS[plan]?.videos} videos`,
-          quantity: 1,
-          currency_id: 'CLP',
-          unit_price: parseFloat(planPrice)
-        }
-      ],
-      payer: {
+      const preference = {
+        items: [
+          {
+            id: `rococo_${plan}_${Date.now()}`,
+            title: `Membresía ${PLANS[plan]?.name || 'Premium'} - Rococo Privé`,
+            description: `Acceso a membresía ${PLANS[plan]?.name} con ${PLANS[plan]?.photos} fotos y ${PLANS[plan]?.videos} videos`,
+            quantity: 1,
+            currency_id: 'CLP',
+            unit_price: parseFloat(planPrice)
+          }
+        ],
+        payer: {
+          email: email,
+          name: name
+        },
+        back_urls: {
+          success: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/success`,
+          failure: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/failure`,
+          pending: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/pending`
+        },
+        auto_return: 'approved',
+        external_reference: `ROCOCO_${plan}_${email}_${Date.now()}`
+      };
+
+      const response = await mercadopago.preferences.create(preference);
+
+      console.log('✅ Mercado Pago preference created:', response.body.id);
+
+      res.json({
+        preferenceId: response.body.id,
+        init_point: response.body.init_point,
+        sandbox_init_point: response.body.sandbox_init_point,
+        plan: plan,
+        amount: planPrice,
         email: email,
-        name: name
-      },
-      back_urls: {
-        success: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/success`,
-        failure: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/failure`,
-        pending: `${process.env.API_URL || 'http://localhost:3001'}/api/mercadopago/pending`
-      },
-      auto_return: 'approved',
-      external_reference: `ROCOCO_${plan}_${email}_${Date.now()}`
-    };
-
-    const response = await MercadoPago.preferences.create(preference);
-
-    console.log('✅ Mercado Pago preference created:', response.body.id);
-
-    res.json({
-      preferenceId: response.body.id,
-      init_point: response.body.init_point,
-      sandbox_init_point: response.body.sandbox_init_point,
-      plan: plan,
-      amount: planPrice,
-      email: email,
-      name: name,
-      mode: 'production'
-    });
+        name: name,
+        mode: 'production'
+      });
+    } catch (importError) {
+      console.error('❌ Failed to import mercadopago:', importError);
+      res.status(500).json({ 
+        error: 'Error interno del servidor al configurar el pago',
+        details: importError.message 
+      });
+    }
   } catch (error) {
     console.error('❌ Error creating Mercado Pago preference:', error);
     res.status(500).json({ 
