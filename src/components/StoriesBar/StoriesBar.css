@@ -1,0 +1,89 @@
+.stories-container {
+  padding-top: 40px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  perspective: 1000px;
+}
+
+.stories-scroll-area {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-bottom: 15px;
+  padding-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  scrollbar-width: none; /* Firefox */
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.stories-scroll-area::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.story-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 80px;
+}
+
+.story-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.story-circle.active {
+  background: linear-gradient(45deg, #FFD700, #FF0055, #800080);
+  background-origin: border-box;
+  padding: 3px;
+}
+
+.story-circle img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #050407;
+}
+
+.story-item span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.5px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.add-story .story-circle {
+  background: rgba(212, 175, 55, 0.1);
+  border: 1.5px dashed var(--color-gold);
+  color: var(--color-gold);
+}
+
+.story-item:hover .story-circle {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
+}
+
+.story-item:hover span {
+  color: white;
+}
