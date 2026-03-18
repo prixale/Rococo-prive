@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, CreditCard, Globe, MapPin, Check } from 'lucide-react';
-import StripeCheckout from '../components/StripeCheckout/StripeCheckout';
-import WebpayCheckout from '../components/WebpayCheckout/WebpayCheckout';
+import { ChevronRight, Check } from 'lucide-react';
 import MercadoPagoCheckout from '../components/MercadoPagoCheckout/MercadoPagoCheckout';
 import GoogleLogin from '../components/GoogleLogin/GoogleLogin';
 import './Membership.css';
@@ -21,11 +19,7 @@ const Membership = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [showPayment, setShowPayment] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [selectedCountry, setSelectedCountry] = useState('chile');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mercadopago');
   const [isLoading, setIsLoading] = useState(false);
-  const [showStripeCheckout, setShowStripeCheckout] = useState(false);
-  const [showWebpayCheckout, setShowWebpayCheckout] = useState(false);
   const [showMercadoPagoCheckout, setShowMercadoPagoCheckout] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -304,33 +298,6 @@ const Membership = ({ onNavigate }) => {
     }, 1500);
   };
 
-  const chilePaymentMethods = [
-    { id: 'webpay', name: 'WebPay', icon: '💳' },
-    { id: 'servipag', name: 'ServiPag', icon: '💰' },
-    { id: 'multicaja', name: 'Multicaja', icon: '📦' },
-    { id: 'santander', name: 'Santander', icon: '🏦' },
-    { id: 'bancochile', name: 'Banco de Chile', icon: '🏛️' },
-    { id: 'scotiabank', name: 'Scotiabank', icon: '🏦' },
-    { id: 'bancoestado', name: 'BancoEstado', icon: '🏛️' },
-    { id: 'itau', name: 'Itaú', icon: '🏦' },
-    { id: 'mercadopago', name: 'MercadoPago', icon: '💲' },
-  ];
-
-  const worldPaymentMethods = [
-    { id: 'visa', name: 'Visa', icon: '💳' },
-    { id: 'mastercard', name: 'Mastercard', icon: '💳' },
-    { id: 'amex', name: 'American Express', icon: '💳' },
-    { id: 'paypal', name: 'PayPal', icon: '📧' },
-    { id: 'pse', name: 'PSE (Colombia)', icon: '🏦' },
-    { id: 'oxxo', name: 'OXXO (México)', icon: '🏪' },
-    { id: 'baloto', name: 'Baloto (Colombia)', icon: '🎰' },
-    { id: 'loteria', name: 'Lotería (Argentina)', icon: '🎱' },
-    { id: 'picpay', name: 'PicPay (Brasil)', icon: '📱' },
-    { id: 'klarna', name: 'Klarna', icon: '💳' },
-    { id: 'afterpay', name: 'Afterpay', icon: '💳' },
-    { id: 'crypto', name: 'Criptomonedas', icon: '₿' },
-  ];
-
   return (
     <div className="membership-page container">
       <header className="membership-header">
@@ -550,59 +517,12 @@ const Membership = ({ onNavigate }) => {
               Plan {MembershipPlans[selectedPlan]?.name} - ${MembershipPlans[selectedPlan]?.price}/mes
             </p>
             
-            <div className="country-selector">
-              <button 
-                className={`country-btn ${selectedCountry === 'chile' ? 'active' : ''}`}
-                onClick={() => setSelectedCountry('chile')}
-              >
-                <MapPin size={16} /> Chile
-              </button>
-              <button 
-                className={`country-btn ${selectedCountry === 'world' ? 'active' : ''}`}
-                onClick={() => setSelectedCountry('world')}
-              >
-                <Globe size={16} /> Mundo
-              </button>
-            </div>
-
             <div className="payment-methods-grid">
-              {selectedCountry === 'chile' ? (
-                <>
-                  <button 
-                    className={`payment-method-btn ${selectedPaymentMethod === 'mercadopago' ? 'active' : ''}`}
-                    onClick={() => setSelectedPaymentMethod('mercadopago')}
-                  >
-                    <span className="method-icon">🟢</span>
-                    <span className="method-name">Mercado Pago</span>
-                    <span className="method-desc">Tarjetas/Transferencia</span>
-                  </button>
-                  <button 
-                    className={`payment-method-btn ${selectedPaymentMethod === 'webpay' ? 'active' : ''}`}
-                    onClick={() => setSelectedPaymentMethod('webpay')}
-                  >
-                    <span className="method-icon">🇨🇱</span>
-                    <span className="method-name">Webpay</span>
-                    <span className="method-desc">Crédito/Débito</span>
-                  </button>
-                  <button 
-                    className={`payment-method-btn ${selectedPaymentMethod === 'stripe' ? 'active' : ''}`}
-                    onClick={() => setSelectedPaymentMethod('stripe')}
-                  >
-                    <span className="method-icon">💳</span>
-                    <span className="method-name">Stripe</span>
-                    <span className="method-desc">Internacional</span>
-                  </button>
-                </>
-              ) : (
-                <button 
-                  className={`payment-method-btn ${selectedPaymentMethod === 'stripe' ? 'active' : ''}`}
-                  onClick={() => setSelectedPaymentMethod('stripe')}
-                >
-                  <span className="method-icon">💳</span>
-                  <span className="method-name">Stripe</span>
-                  <span className="method-desc">Visa/Mastercard</span>
-                </button>
-              )}
+              <div className="payment-method-btn active">
+                <span className="method-icon">🟢</span>
+                <span className="method-name">Mercado Pago</span>
+                <span className="method-desc">Tarjetas, Transferencia, Rapipago, PagoFácil</span>
+              </div>
             </div>
 
             <div className="login-section-mini">
@@ -636,16 +556,8 @@ const Membership = ({ onNavigate }) => {
             <button 
               className="btn-process-payment" 
               onClick={() => {
-                if (selectedPaymentMethod === 'mercadopago') {
-                  setShowPayment(false);
-                  setShowMercadoPagoCheckout(true);
-                } else if (selectedPaymentMethod === 'webpay') {
-                  setShowPayment(false);
-                  setShowWebpayCheckout(true);
-                } else {
-                  setShowPayment(false);
-                  setShowStripeCheckout(true);
-                }
+                setShowPayment(false);
+                setShowMercadoPagoCheckout(true);
               }} 
               disabled={isLoading}
             >
@@ -653,32 +565,6 @@ const Membership = ({ onNavigate }) => {
             </button>
           </div>
         </div>
-      )}
-
-      {showStripeCheckout && (
-        <StripeCheckout 
-          selectedPlan={selectedPlan}
-          userData={{
-            name: name || email?.split('@')[0] || 'Usuario',
-            email: email || 'usuario@ejemplo.com'
-          }}
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
-          isDemoMode={true}
-        />
-      )}
-
-      {showWebpayCheckout && (
-        <WebpayCheckout 
-          selectedPlan={selectedPlan}
-          userData={{
-            name: name || email?.split('@')[0] || 'Usuario',
-            email: email || 'usuario@ejemplo.com'
-          }}
-          onSuccess={handlePaymentSuccess}
-          onCancel={() => setShowWebpayCheckout(false)}
-          isDemoMode={true}
-        />
       )}
 
       {showMercadoPagoCheckout && (

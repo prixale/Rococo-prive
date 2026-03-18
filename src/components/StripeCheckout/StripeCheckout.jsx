@@ -8,7 +8,7 @@ const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const isProduction = import.meta.env.MODE === 'production';
 
-const stripePromise = loadStripe(STRIPE_PUBLIC_KEY);
+const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
 
 const MembershipPlans = {
   free: { name: 'Gratis', photos: 10, videos: 0, price: 0 },
@@ -318,7 +318,7 @@ const StripeCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDemoMod
           </button>
         </div>
 
-        <Elements stripe={stripePromise}>
+        <Elements stripe={stripePromise} options={STRIPE_PUBLIC_KEY ? undefined : {}}>
           <CheckoutForm 
             selectedPlan={selectedPlan}
             userData={userData}
