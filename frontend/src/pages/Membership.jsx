@@ -576,7 +576,7 @@ const Membership = ({ onNavigate }) => {
           }}
           onSuccess={handlePaymentSuccess}
           onCancel={() => setShowMercadoPagoCheckout(false)}
-          isDemoMode={true}
+          isDemoMode={false}
         />
       )}
 
