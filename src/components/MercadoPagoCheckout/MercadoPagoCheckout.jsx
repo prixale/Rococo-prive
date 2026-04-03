@@ -4,12 +4,12 @@ import './MercadoPagoCheckout.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDemoMode = false }) => {
+const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [step, setStep] = useState('init');
-  const [preferenceData, setPreferenceData] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [redirectUrl, setRedirectUrl] = useState(null);
+  const hasCreatedPreference = useRef(false);
 
   const planPrices = {
     premium: { price: 19990, name: 'Premium' },
@@ -19,78 +19,117 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
   const price = planPrices[selectedPlan]?.price || 19990;
   const planName = planPrices[selectedPlan]?.name || 'Premium';
 
+  useEffect(() => {
+    if (redirectUrl && step === 'redirect') {
+      console.log('🔄 Redirigiendo a Mercado Pago:', redirectUrl);
+      window.location.href = redirectUrl;
+    }
+  }, [redirectUrl, step]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const paymentId = urlParams.get('payment_id');
+    
+    if (paymentStatus === 'success' && paymentId) {
+      console.log('✅ Pago exitoso detectado:', paymentId);
+      setStep('success');
+      onSuccess({
+        plan: selectedPlan,
+        email: userData.email,
+        name: userData.name,
+        amount: price,
+        paymentMethod: 'mercadopago',
+        currency: 'CLP',
+        paymentId: paymentId
+      });
+    } else if (paymentStatus === 'failure') {
+      setStep('error');
+      setError('El pago fue rechazado. Por favor intenta de nuevo.');
+    } else if (paymentStatus === 'pending') {
+      setStep('processing');
+      setError('Tu pago está siendo procesado. Te notificaremos cuando esté confirmado.');
+    }
+  }, [selectedPlan, userData, onSuccess, price]);
+
   const handleRetry = () => {
     setError(null);
     setStep('init');
+    hasCreatedPreference.current = false;
   };
 
   const createPreference = async () => {
+    if (hasCreatedPreference.current) return;
+    hasCreatedPreference.current = true;
+    
     setLoading(true);
     setError(null);
     setStep('creating');
 
     try {
-      const response = await fetch(`${API_URL}/api/mercadopago/create-preference`, {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Debes iniciar sesión para continuar.');
+        setStep('error');
+        setLoading(false);
+        hasCreatedPreference.current = false;
+        return;
+      }
+
+      console.log('📡 Llamando API:', `${API_URL}/api/payments/create`);
+      
+      const response = await fetch(`${API_URL}/api/payments/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           plan: selectedPlan,
-          price: price,
-          email: userData.email,
-          name: userData.name
+          price: price
         })
       });
 
       const data = await response.json();
+      console.log('📦 Respuesta API:', data);
 
       if (data.error) {
         setError(data.error);
         setStep('error');
         setLoading(false);
+        hasCreatedPreference.current = false;
         return;
       }
 
-      setPreferenceData(data);
-      
-      if (isDemoMode || data.sandbox_init_point) {
-        setStep('redirect');
-      } else if (data.init_point) {
-        setStep('redirect');
+      if (!data.init_point) {
+        setError('No se pudo obtener la URL de pago. Intenta de nuevo.');
+        setStep('error');
+        setLoading(false);
+        hasCreatedPreference.current = false;
+        return;
       }
+
+      setRedirectUrl(data.init_point);
+      setStep('redirect');
+      
     } catch (err) {
-      console.error('MercadoPago error:', err);
+      console.error('❌ Error de conexión:', err);
       setError('Error de conexión. Verifica tu conexión e intenta de nuevo.');
       setStep('error');
+      hasCreatedPreference.current = false;
     } finally {
       setLoading(false);
     }
   };
 
   const redirectToMercadoPago = () => {
-    const url = preferenceData?.sandbox_init_point || preferenceData?.init_point;
-    if (url) {
-      window.location.href = url;
+    if (redirectUrl) {
+      console.log('🔄 Redirigiendo a:', redirectUrl);
+      window.location.href = redirectUrl;
+    } else {
+      setError('Error al redireccionar. Intenta de nuevo.');
+      setStep('error');
     }
-  };
-
-  const simulatePayment = async () => {
-    setStep('processing');
-    setLoading(true);
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    setStep('success');
-    onSuccess({
-      plan: selectedPlan,
-      email: userData.email,
-      name: userData.name,
-      amount: price,
-      paymentMethod: 'mercadopago',
-      currency: 'CLP',
-      mode: isDemoMode ? 'test' : 'production'
-    });
-
-    setLoading(false);
   };
 
   return (
@@ -134,7 +173,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
                 <CreditCard size={24} />
                 <div>
                   <strong>Tarjeta de Crédito</strong>
-                  <span>Visa, Mastercard, Magna</span>
+                  <span>Visa, Mastercard</span>
                 </div>
               </div>
               <div className="method-card">
@@ -148,7 +187,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
                 <Wallet size={24} />
                 <div>
                   <strong>Saldo Mercado Pago</strong>
-                  <span>Usa tu billetera digital</span>
+                  <span>Billetera digital</span>
                 </div>
               </div>
               <div className="method-card">
@@ -178,7 +217,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
               >
                 {loading ? (
                   <>
-                    <Loader2 size={18} className="spin" /> Iniciando...
+                    <Loader2 size={18} className="spin" /> Procesando...
                   </>
                 ) : (
                   <>
@@ -198,7 +237,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
         {step === 'creating' && (
           <div className="mp-loading">
             <Loader2 size={48} className="spin" />
-            <h3>Creando pago...</h3>
+            <h3>Conectando con Mercado Pago...</h3>
             <p>Por favor espera</p>
           </div>
         )}
@@ -208,21 +247,12 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
             <div className="mp-redirect-icon">🟢</div>
             <h3>Redireccionando a Mercado Pago...</h3>
             <p>Serás redirigido automáticamente</p>
-            
-            {isDemoMode ? (
-              <div className="demo-actions">
-                <button className="btn-simulate" onClick={simulatePayment}>
-                  <Check size={18} /> Simular Pago Exitoso
-                </button>
-                <button className="btn-back-small" onClick={handleRetry}>
-                  Cancelar
-                </button>
-              </div>
-            ) : (
+            <div className="redirect-actions">
+              <p>Si no eres redirigido automáticamente:</p>
               <button className="btn-redirect-mp" onClick={redirectToMercadoPago}>
-                Ir a Mercado Pago
+                <CreditCard size={18} /> Ir a Mercado Pago
               </button>
-            )}
+            </div>
           </div>
         )}
 
@@ -231,6 +261,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
             <Loader2 size={48} className="spin" />
             <h3>Procesando pago...</h3>
             <p>No cierres esta ventana</p>
+            {error && <p className="error-note">{error}</p>}
           </div>
         )}
 
@@ -238,7 +269,8 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
           <div className="mp-success">
             <div className="success-icon-large">✓</div>
             <h3>¡Pago Exitoso!</h3>
-            <p>Tu membresía ha sido activada</p>
+            <p>Tu membresía {planName} ha sido activada</p>
+            <p className="redirect-note">Redirigiendo a tu dashboard...</p>
           </div>
         )}
 
@@ -254,16 +286,6 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel, isDe
               <button className="btn-back-small" onClick={onCancel}>
                 Cancelar
               </button>
-            </div>
-          </div>
-        )}
-
-        {isDemoMode && step === 'init' && (
-          <div className="demo-notice">
-            <AlertCircle size={16} />
-            <div>
-              <strong>⚠️ Modo de Prueba</strong>
-              <p>Usa las credenciales de test de Mercado Pago</p>
             </div>
           </div>
         )}
