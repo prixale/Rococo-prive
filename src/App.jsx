@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { storage } from './utils/storage';
 import Navbar from './components/Navbar/Navbar';
 import Home from './pages/Home';
 import Discover from './pages/Discover';
@@ -11,36 +12,6 @@ import AdminLogin from './pages/AdminLogin';
 import MobileNav from './components/MobileNav/MobileNav';
 import Footer from './components/Footer/Footer';
 import './index.css';
-
-const ALL_PROFILES_KEY = 'rococo_all_profiles';
-const LOCATION_KEY = 'rococo_user_location';
-
-const locationCache = {
-  'Santiago': { city: 'Santiago', country: 'Chile', countryCode: 'CL' },
-  'Valparaíso': { city: 'Valparaíso', country: 'Chile', countryCode: 'CL' },
-  'Concepción': { city: 'Concepción', country: 'Chile', countryCode: 'CL' },
-  'Buenos Aires': { city: 'Buenos Aires', country: 'Argentina', countryCode: 'AR' },
-  'São Paulo': { city: 'São Paulo', country: 'Brasil', countryCode: 'BR' },
-  'Rio de Janeiro': { city: 'Rio de Janeiro', country: 'Brasil', countryCode: 'BR' },
-  'Lima': { city: 'Lima', country: 'Perú', countryCode: 'PE' },
-  'Bogotá': { city: 'Bogotá', country: 'Colombia', countryCode: 'CO' },
-  'Medellín': { city: 'Medellín', country: 'Colombia', countryCode: 'CO' },
-  'Ciudad de México': { city: 'Mexico City', country: 'México', countryCode: 'MX' },
-  'Madrid': { city: 'Madrid', country: 'España', countryCode: 'ES' },
-  'Barcelona': { city: 'Barcelona', country: 'España', countryCode: 'ES' },
-  'Lisboa': { city: 'Lisboa', country: 'Portugal', countryCode: 'PT' },
-  'Londres': { city: 'London', country: 'Reino Unido', countryCode: 'GB' },
-  'París': { city: 'Paris', country: 'Francia', countryCode: 'FR' },
-  'Berlín': { city: 'Berlin', country: 'Alemania', countryCode: 'DE' },
-  'Roma': { city: 'Roma', country: 'Italia', countryCode: 'IT' },
-  'Ámsterdam': { city: 'Amsterdam', country: 'Países Bajos', countryCode: 'NL' },
-  'Tokio': { city: 'Tokyo', country: 'Japón', countryCode: 'JP' },
-  'Seúl': { city: 'Seoul', country: 'Corea del Sur', countryCode: 'KR' },
-  'Sídney': { city: 'Sydney', country: 'Australia', countryCode: 'AU' },
-  'Miami': { city: 'Miami', country: 'Estados Unidos', countryCode: 'US' },
-  'Los Ángeles': { city: 'Los Angeles', country: 'Estados Unidos', countryCode: 'US' },
-  'Nueva York': { city: 'New York', country: 'Estados Unidos', countryCode: 'US' },
-};
 
 function getLocationFromCoords(lat, lon) {
   return new Promise((resolve) => {
@@ -82,6 +53,7 @@ function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   useEffect(() => {
+    // Admin setup (still using localStorage directly for simple flag, but could move to storage)
     const adminAuth = localStorage.getItem('rococo_admin_password');
     if (adminAuth === 'true') {
       setIsAdminLoggedIn(true);
@@ -115,24 +87,14 @@ function App() {
   };
 
   useEffect(() => {
-    const savedProfiles = localStorage.getItem(ALL_PROFILES_KEY);
-    if (savedProfiles) {
-      try {
-        setAllProfiles(JSON.parse(savedProfiles));
-      } catch (e) {
-        console.error('Error parsing saved profiles:', e);
-      }
-    }
+    // Using Storage Utility
+    const profiles = storage.getAllProfiles();
+    setAllProfiles(profiles);
 
-    const savedLocation = localStorage.getItem(LOCATION_KEY);
+    const savedLocation = storage.getLocation();
     if (savedLocation) {
-      try {
-        const parsedLocation = JSON.parse(savedLocation);
-        setUserLocation(parsedLocation);
-        setLocationLoading(false);
-      } catch (e) {
-        console.error('Error parsing saved location', e);
-      }
+      setUserLocation(savedLocation);
+      setLocationLoading(false);
     }
 
     if (navigator.geolocation) {
@@ -141,61 +103,42 @@ function App() {
           const { latitude, longitude } = position.coords;
           const locationData = await getLocationFromCoords(latitude, longitude);
           setUserLocation(locationData);
-          localStorage.setItem(LOCATION_KEY, JSON.stringify(locationData));
+          storage.saveLocation(locationData);
           setLocationLoading(false);
         },
         (error) => {
-          console.log('Error getting location:', error.message);
-          setLocationError('No se pudo obtener la ubicación');
+          console.log('Location access denied or failed. Using default.');
           
           const defaultLocation = {
-            city: 'Santiago',
-            country: 'Chile',
-            countryCode: 'CL',
-            fullLocation: 'Santiago, Chile',
-            lat: -33.4489,
-            lon: -70.6693
+            city: 'Santiago', country: 'Chile', countryCode: 'CL',
+            fullLocation: 'Santiago, Chile', lat: -33.4489, lon: -70.6693
           };
           setUserLocation(defaultLocation);
-          localStorage.setItem(LOCATION_KEY, JSON.stringify(defaultLocation));
+          storage.saveLocation(defaultLocation);
           setLocationLoading(false);
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
       );
     } else {
       const defaultLocation = {
-        city: 'Santiago',
-        country: 'Chile',
-        countryCode: 'CL',
-        fullLocation: 'Santiago, Chile',
-        lat: -33.4489,
-        lon: -70.6693
+        city: 'Santiago', country: 'Chile', countryCode: 'CL',
+        fullLocation: 'Santiago, Chile', lat: -33.4489, lon: -70.6693
       };
       setUserLocation(defaultLocation);
-      localStorage.setItem(LOCATION_KEY, JSON.stringify(defaultLocation));
+      storage.saveLocation(defaultLocation);
       setLocationLoading(false);
     }
   }, []);
 
   const updateAllProfiles = (newProfiles) => {
     setAllProfiles(newProfiles);
-    localStorage.setItem(ALL_PROFILES_KEY, JSON.stringify(newProfiles));
+    // Storage utility takes care of this or we could add a saveAll method
+    localStorage.setItem('rococo_all_profiles', JSON.stringify(newProfiles));
   };
 
   const handleProfilePublished = (profileData) => {
-    const existingIndex = allProfiles.findIndex(p => p.email === profileData.email);
-    let newProfiles;
-    if (existingIndex >= 0) {
-      newProfiles = [...allProfiles];
-      newProfiles[existingIndex] = profileData;
-    } else {
-      newProfiles = [...allProfiles, profileData];
-    }
-    updateAllProfiles(newProfiles);
+    const newProfiles = storage.saveProfile(profileData);
+    setAllProfiles(newProfiles);
   };
 
   const renderPage = () => {

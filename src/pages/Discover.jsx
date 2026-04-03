@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { storage } from '../utils/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, Search, SlidersHorizontal, MapPin, Euro, ChevronRight } from 'lucide-react';
 import ProfileCard from '../components/ProfileCard/ProfileCard';
 import ProfileDetail from '../components/ProfileDetail/ProfileDetail';
 import './Discover.css';
 
-const STORAGE_KEY = 'rococo_prive_user';
+// Storage managed by storage utility
 
 const Discover = ({ onNavigate, allProfiles = [], userLocation }) => {
   const [filter, setFilter] = useState('Todas');
@@ -16,38 +17,34 @@ const Discover = ({ onNavigate, allProfiles = [], userLocation }) => {
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem(STORAGE_KEY);
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      const userProfileData = localStorage.getItem(`rococo_data_${userData.email}`);
-      if (userProfileData) {
-        const data = JSON.parse(userProfileData);
-        if (data.photos && data.photos.length > 0 && data.isPublic) {
-          setCurrentUserProfile({
-            name: data.profile?.name || userData.name,
-            location: data.profile?.location || 'Chile',
-            price: data.profile?.tarifa ? parseInt(data.profile.tarifa.replace(/[^0-9]/g, '')) : 50000,
-            image: data.photos[0]?.url || '',
-            age: data.profile?.age || '25',
-            height: data.profile?.altura || '170',
-            category: 'Verificadas',
-            description: data.profile?.description || '',
-            phone: data.profile?.phone || '',
-            whatsapp: data.profile?.whatsapp || '',
-            isUserProfile: true
-          });
-        }
+    const userData = storage.getSession();
+    if (userData) {
+      const data = storage.getUserData(userData.email);
+      if (data && data.photos && data.photos.length > 0 && data.isPublic) {
+        setCurrentUserProfile({
+          name: data.profile?.name || userData.name,
+          location: data.profile?.location || 'Chile',
+          price: data.profile?.tarifa ? parseInt(data.profile.tarifa.replace(/[^0-9]/g, '')) : 50000,
+          image: data.photos[0]?.url || '',
+          age: data.profile?.age || '25',
+          height: data.profile?.altura || '170',
+          category: 'Verificadas',
+          description: data.profile?.description || '',
+          phone: data.profile?.phone || '',
+          whatsapp: data.profile?.whatsapp || '',
+          isUserProfile: true
+        });
       }
     }
   }, []);
 
   const mockProfiles = [
-    { name: 'Elena', price: 300, location: 'Madrid, ES', category: 'Verificadas', age: '24', height: '172', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=688', phone: '+34600123456', whatsapp: '+34600123456' },
-    { name: 'Valentina', price: 450, location: 'Barcelona, ES', category: 'Nuevas', age: '22', height: '168', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=687', phone: '+34600123457', whatsapp: '+34600123457' },
-    { name: 'Sofia', price: 500, location: 'Marbella, ES', category: 'Verificadas', age: '26', height: '175', image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=764', phone: '+34600123458', whatsapp: '+34600123458' },
-    { name: 'Isabella', price: 350, location: 'Ibiza, ES', category: 'Nuevas', age: '23', height: '170', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=761', phone: '+34600123459', whatsapp: '+34600123459' },
-    { name: 'Martina', price: 400, location: 'Madrid, ES', category: 'Verificadas', age: '25', height: '173', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=687', phone: '+34600123460', whatsapp: '+34600123460' },
-    { name: 'Camila', price: 600, location: 'Barcelona, ES', category: 'Nuevas', age: '27', height: '171', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=764', phone: '+34600123461', whatsapp: '+34600123461' },
+    { name: 'Elena', price: 55000, location: 'Santiago, CL', category: 'Verificadas', age: '24', height: '172', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=688', phone: '+56900123456', whatsapp: '+56900123456' },
+    { name: 'Valentina', price: 70000, location: 'Viña del Mar, CL', category: 'Nuevas', age: '22', height: '168', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=687', phone: '+56900123457', whatsapp: '+56900123457' },
+    { name: 'Sofia', price: 90000, location: 'Las Condes, CL', category: 'Verificadas', age: '26', height: '175', image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=764', phone: '+56900123458', whatsapp: '+56900123458' },
+    { name: 'Isabella', price: 45000, location: 'Concepción, CL', category: 'Nuevas', age: '23', height: '170', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=761', phone: '+56900123459', whatsapp: '+56900123459' },
+    { name: 'Martina', price: 65000, location: 'Santiago, CL', category: 'Verificadas', age: '25', height: '173', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=687', phone: '+56900123460', whatsapp: '+56900123460' },
+    { name: 'Camila', price: 100000, location: 'Antofagasta, CL', category: 'Nuevas', age: '27', height: '171', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=764', phone: '+56900123461', whatsapp: '+56900123461' },
   ];
 
   const userProfiles = allProfiles
@@ -191,7 +188,7 @@ const Discover = ({ onNavigate, allProfiles = [], userLocation }) => {
             {filteredProfiles.length === 0 && (
               <div className="no-results">
                 <p>No se encontraron resultados para tus criterios.</p>
-                <button onClick={() => {setFilter('Todas'); setMaxPrice(1000); setSearchQuery('');}}>Limpiar Filtros</button>
+                <button onClick={() => {setFilter('Todas'); setMaxPrice(100000); setSearchQuery('');}}>Limpiar Filtros</button>
               </div>
             )}
           </div>

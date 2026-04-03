@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { storage } from '../utils/storage';
 import './Home.css';
 import Hero from '../components/Hero/Hero';
 import SearchFilter from '../components/SearchFilter/SearchFilter';
@@ -29,36 +30,31 @@ const Home = ({ onNavigate, allProfiles = [], userLocation }) => {
   const [activeStoryIndex, setActiveStoryIndex] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [allStories, setAllStories] = useState([]);
-
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem(STORAGE_KEY);
-      if (savedUser) {
-        const userData = JSON.parse(savedUser);
-        const userProfileData = localStorage.getItem(`rococo_data_${userData.email}`);
-        if (userProfileData) {
-          const data = JSON.parse(userProfileData);
-          if (data.photos && data.photos.length > 0 && data.isPublic) {
-            let parsedPrice = 50000;
-            if (data.profile?.tarifa) {
-              const tarifaStr = String(data.profile.tarifa);
-              parsedPrice = parseInt(tarifaStr.replace(/[^0-9]/g, '')) || 50000;
-            }
-            setCurrentUserProfile({
-              name: data.profile?.name || userData.name,
-              location: data.profile?.location || 'Chile',
-              price: parsedPrice,
-              image: data.photos[0]?.url || '',
-              age: data.profile?.age || '25',
-              height: data.profile?.altura || '170',
-              category: 'Verificadas',
-              description: data.profile?.description || '',
-              phone: data.profile?.phone || '',
-              whatsapp: data.profile?.whatsapp || '',
-              services: data.profile?.services || [],
-              isUserProfile: true
-            });
+      const userData = storage.getSession();
+      if (userData) {
+        const data = storage.getUserData(userData.email);
+        if (data && data.photos && data.photos.length > 0 && data.isPublic) {
+          let parsedPrice = 50000;
+          if (data.profile?.tarifa) {
+            const tarifaStr = String(data.profile.tarifa);
+            parsedPrice = parseInt(tarifaStr.replace(/[^0-9]/g, '')) || 50000;
           }
+          setCurrentUserProfile({
+            name: data.profile?.name || userData.name,
+            location: data.profile?.location || 'Chile',
+            price: parsedPrice,
+            image: data.photos[0]?.url || '',
+            age: data.profile?.age || '25',
+            height: data.profile?.altura || '170',
+            category: 'Verificadas',
+            description: data.profile?.description || '',
+            phone: data.profile?.phone || '',
+            whatsapp: data.profile?.whatsapp || '',
+            services: data.profile?.services || [],
+            isUserProfile: true
+          });
         }
       }
     } catch (e) {
@@ -68,30 +64,24 @@ const Home = ({ onNavigate, allProfiles = [], userLocation }) => {
     const loadAllStories = () => {
       const now = new Date();
       const storiesList = [];
+      const allUserData = storage.getAllUserData();
       
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('rococo_data_')) {
-          const userData = localStorage.getItem(key);
-          if (userData) {
-            const data = JSON.parse(userData);
-            if (data.stories && data.stories.length > 0 && data.isPublic) {
-              const validStories = data.stories.filter(story => {
-                const expiresAt = new Date(story.expiresAt);
-                return expiresAt > now;
-              });
-              
-              if (validStories.length > 0) {
-                storiesList.push({
-                  name: data.profile?.name || 'Usuario',
-                  image: data.photos?.[0]?.url || '',
-                  stories: validStories
-                });
-              }
-            }
+      allUserData.forEach(data => {
+        if (data.stories && data.stories.length > 0 && data.isPublic) {
+          const validStories = data.stories.filter(story => {
+            const expiresAt = new Date(story.expiresAt);
+            return expiresAt > now;
+          });
+          
+          if (validStories.length > 0) {
+            storiesList.push({
+              name: data.profile?.name || 'Usuario',
+              image: data.photos?.[0]?.url || '',
+              stories: validStories
+            });
           }
         }
-      }
+      });
       
       setAllStories(storiesList);
     };
@@ -173,7 +163,7 @@ const Home = ({ onNavigate, allProfiles = [], userLocation }) => {
         </div>
         
         <div className="view-more-container">
-          <button className="btn-view-more" onClick={() => onNavigate('membership')}>VER TODAS LAS ESCORTS</button>
+          <button className="btn-view-more" onClick={() => onNavigate('discover')}>VER TODAS LAS ESCORTS</button>
         </div>
       </section>
 

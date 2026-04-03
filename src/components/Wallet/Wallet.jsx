@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { storage } from '../../utils/storage';
 import { motion } from 'framer-motion';
 import { 
   Wallet, 
@@ -83,12 +84,8 @@ const WalletTab = ({ onNavigate }) => {
     { id: 'crypto', name: 'Criptomonedas', icon: '₿' },
   ];
 
-  // Cards stored in localStorage
-  const [cards, setCards] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('rococo_cards') || '[]');
-    } catch { return []; }
-  });
+  // Cards managed by storage utility
+  const [cards, setCards] = useState(() => storage.getCards());
 
   const formatCardNumber = (val) => {
     return val.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim().slice(0, 19);
@@ -104,7 +101,7 @@ const WalletTab = ({ onNavigate }) => {
     const card = { ...newCard, masked, id: Date.now(), country: selectedCountry };
     const updated = [...cards, card];
     setCards(updated);
-    localStorage.setItem('rococo_cards', JSON.stringify(updated));
+    storage.saveCards(updated);
     setNewCard({ number: '', name: '', expiry: '', cvv: '', type: 'visa' });
     setShowAddCard(false);
   };
@@ -112,7 +109,7 @@ const WalletTab = ({ onNavigate }) => {
   const removeCard = (id) => {
     const updated = cards.filter(c => c.id !== id);
     setCards(updated);
-    localStorage.setItem('rococo_cards', JSON.stringify(updated));
+    storage.saveCards(updated);
   };
 
   const handleDeposit = (e) => {

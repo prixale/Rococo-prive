@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { storage } from '../utils/storage';
 import { ChevronRight, Check } from 'lucide-react';
 import MercadoPagoCheckout from '../components/MercadoPagoCheckout/MercadoPagoCheckout';
 import GoogleLogin from '../components/GoogleLogin/GoogleLogin';
@@ -29,9 +30,9 @@ const Membership = ({ onNavigate }) => {
       membership: 'free',
       timestamp: new Date().toISOString()
     };
-    localStorage.setItem('rococo_prive_user', JSON.stringify(enhancedUserData));
+    storage.setSession(enhancedUserData);
     
-    const existingData = localStorage.getItem(`rococo_data_${userData.email}`);
+    const existingData = storage.getUserData(userData.email);
     
     if (!existingData) {
       const initialData = {
@@ -64,7 +65,7 @@ const Membership = ({ onNavigate }) => {
         googleId: userData.googleId,
         avatar: userData.avatar
       };
-      localStorage.setItem(`rococo_data_${userData.email}`, JSON.stringify(initialData));
+      storage.saveUserData(userData.email, initialData);
     }
     
     onNavigate('dashboard');
@@ -85,9 +86,9 @@ const Membership = ({ onNavigate }) => {
         membership: 'free',
         timestamp: new Date().toISOString()
       };
-      localStorage.setItem('rococo_prive_user', JSON.stringify(userData));
+      storage.setSession(userData);
       
-      const existingData = localStorage.getItem(`rococo_data_${email}`);
+      const existingData = storage.getUserData(email);
       
       if (!existingData) {
         const initialData = {
@@ -118,7 +119,7 @@ const Membership = ({ onNavigate }) => {
           messages: [],
           isPublic: false
         };
-        localStorage.setItem(`rococo_data_${email}`, JSON.stringify(initialData));
+        storage.saveUserData(email, initialData);
       }
       
       onNavigate('dashboard');
@@ -140,7 +141,7 @@ const Membership = ({ onNavigate }) => {
         membership: selectedPlan || 'free',
         timestamp: new Date().toISOString()
       };
-      localStorage.setItem('rococo_prive_user', JSON.stringify(userData));
+      storage.setSession(userData);
       
       const initialData = {
         profile: {
@@ -170,7 +171,7 @@ const Membership = ({ onNavigate }) => {
         messages: [],
         isPublic: false
       };
-      localStorage.setItem(`rococo_data_${email}`, JSON.stringify(initialData));
+      storage.saveUserData(email, initialData);
       
       onNavigate('dashboard');
     }, 1000);
@@ -199,7 +200,7 @@ const Membership = ({ onNavigate }) => {
       subscriptionStart: new Date().toISOString(),
       timestamp: new Date().toISOString()
     };
-    localStorage.setItem('rococo_prive_user', JSON.stringify(userData));
+    storage.saveUserData(userEmail, userData);
     
     const initialData = {
       profile: {
@@ -234,7 +235,7 @@ const Membership = ({ onNavigate }) => {
         date: new Date().toISOString()
       }
     };
-    localStorage.setItem(`rococo_data_${userEmail}`, JSON.stringify(initialData));
+    storage.saveUserData(userEmail, initialData);
     
     setShowMercadoPagoCheckout(false);
     setPaymentSuccess(true);
@@ -262,7 +263,7 @@ const Membership = ({ onNavigate }) => {
         membership: selectedPlan,
         timestamp: new Date().toISOString()
       };
-      localStorage.setItem('rococo_prive_user', JSON.stringify(userData));
+      storage.setSession(userData);
       
       const initialData = {
         profile: {
@@ -292,7 +293,7 @@ const Membership = ({ onNavigate }) => {
         messages: [],
         isPublic: false
       };
-      localStorage.setItem(`rococo_data_${email || 'nuevo@usuario.com'}`, JSON.stringify(initialData));
+      storage.saveUserData(email || 'nuevo@usuario.com', initialData);
       
       onNavigate('dashboard');
     }, 1500);

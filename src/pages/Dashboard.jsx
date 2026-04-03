@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { storage } from '../utils/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart3, 
@@ -30,7 +31,7 @@ import {
 import MapContainer from '../components/Map/MapContainer';
 import './Dashboard.css';
 
-const STORAGE_KEY = 'rococo_prive_user';
+// Storage key managed by storage utility
 
 const MembershipPlans = {
   free: { name: 'Gratis', photos: 10, videos: 0, price: 0 },
@@ -145,9 +146,8 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
   const storyInputRef = useRef(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem(STORAGE_KEY);
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
+    const userData = storage.getSession();
+    if (userData) {
       setUser(userData);
       loadUserData(userData.email);
     } else {
@@ -157,9 +157,8 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
   }, []);
 
   const loadUserData = (email) => {
-    const savedData = localStorage.getItem(`rococo_data_${email}`);
-    if (savedData) {
-      const data = JSON.parse(savedData);
+    const data = storage.getUserData(email);
+    if (data) {
       setProfileData(data.profile || profileData);
       setPhotos(data.photos || []);
       setVideos(data.videos || []);
@@ -186,7 +185,7 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
       isPublic: isProfilePublic
     };
     
-    localStorage.setItem(`rococo_data_${user.email}`, JSON.stringify(dataToSave));
+    storage.saveUserData(user.email, dataToSave);
     
     setTimeout(() => {
       setSaving(false);
@@ -218,11 +217,10 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
       publishedAt: new Date().toISOString()
     };
 
-    const existingDataStr = localStorage.getItem(`rococo_data_${user.email}`);
-    if (existingDataStr) {
-      const existingData = JSON.parse(existingDataStr);
+    const existingData = storage.getUserData(user.email);
+    if (existingData) {
       existingData.isPublic = true;
-      localStorage.setItem(`rococo_data_${user.email}`, JSON.stringify(existingData));
+      storage.saveUserData(user.email, existingData);
     }
 
     setIsProfilePublic(true);
@@ -240,11 +238,10 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
   const unpublishProfile = () => {
     setIsProfilePublic(false);
     
-    const existingDataStr = localStorage.getItem(`rococo_data_${user.email}`);
-    if (existingDataStr) {
-      const existingData = JSON.parse(existingDataStr);
+    const existingData = storage.getUserData(user.email);
+    if (existingData) {
       existingData.isPublic = false;
-      localStorage.setItem(`rococo_data_${user.email}`, JSON.stringify(existingData));
+      storage.saveUserData(user.email, existingData);
     }
 
     alert('Tu perfil ha sido ocultado del buscador.');
@@ -386,17 +383,16 @@ const Dashboard = ({ onNavigate, onProfilePublished, userLocation }) => {
 
   useEffect(() => {
     if (user && stats) {
-      const existingDataStr = localStorage.getItem(`rococo_data_${user.email}`);
-      if (existingDataStr) {
-        const existingData = JSON.parse(existingDataStr);
+      const existingData = storage.getUserData(user.email);
+      if (existingData) {
         existingData.stats = stats;
-        localStorage.setItem(`rococo_data_${user.email}`, JSON.stringify(existingData));
+        storage.saveUserData(user.email, existingData);
       }
     }
   }, [stats, user]);
 
   const handleLogout = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    storage.setSession(null);
     onNavigate('home');
   };
 
