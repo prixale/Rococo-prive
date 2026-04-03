@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import GoogleLogin from '../components/GoogleLogin/GoogleLogin';
+import MercadoPagoCheckout from '../components/MercadoPagoCheckout/MercadoPagoCheckout';
 import './Membership.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -23,6 +24,17 @@ const Membership = ({ onNavigate }) => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [paymentStep, setPaymentStep] = useState('select');
   const [paymentError, setPaymentError] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    if (token && user) {
+      setIsLoggedIn(true);
+      setCurrentUser(JSON.parse(user));
+    }
+  }, []);
 
   const handleGoogleLogin = async (userData) => {
     setIsLoading(true);
@@ -41,7 +53,14 @@ const Membership = ({ onNavigate }) => {
       if (data.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        onNavigate('dashboard');
+        setIsLoggedIn(true);
+        setCurrentUser(data.user);
+        if (selectedPlan) {
+          setShowMercadoPagoCheckout(true);
+          setPaymentStep('payment');
+        } else {
+          onNavigate('dashboard');
+        }
       } else if (res.status === 400) {
         const loginRes = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
@@ -52,7 +71,14 @@ const Membership = ({ onNavigate }) => {
         if (loginData.token) {
           localStorage.setItem('token', loginData.token);
           localStorage.setItem('user', JSON.stringify(loginData.user));
-          onNavigate('dashboard');
+          setIsLoggedIn(true);
+          setCurrentUser(loginData.user);
+          if (selectedPlan) {
+            setShowMercadoPagoCheckout(true);
+            setPaymentStep('payment');
+          } else {
+            onNavigate('dashboard');
+          }
         } else {
           setError('Error al iniciar sesión con Google');
         }
@@ -84,7 +110,14 @@ const Membership = ({ onNavigate }) => {
       if (data.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        onNavigate('dashboard');
+        setIsLoggedIn(true);
+        setCurrentUser(data.user);
+        if (selectedPlan) {
+          setShowMercadoPagoCheckout(true);
+          setPaymentStep('payment');
+        } else {
+          onNavigate('dashboard');
+        }
       } else {
         setError(data.error || 'Credenciales inválidas');
       }
@@ -117,7 +150,14 @@ const Membership = ({ onNavigate }) => {
       if (data.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        onNavigate('dashboard');
+        setIsLoggedIn(true);
+        setCurrentUser(data.user);
+        if (selectedPlan) {
+          setShowMercadoPagoCheckout(true);
+          setPaymentStep('payment');
+        } else {
+          onNavigate('dashboard');
+        }
       } else {
         setError(data.error || 'Error al crear cuenta');
       }
@@ -133,7 +173,12 @@ const Membership = ({ onNavigate }) => {
       setRegisterMode(true);
     } else {
       setSelectedPlan(plan);
-      setPaymentStep('login');
+      if (isLoggedIn) {
+        setShowMercadoPagoCheckout(true);
+        setPaymentStep('payment');
+      } else {
+        setPaymentStep('login');
+      }
     }
   };
 
@@ -155,6 +200,8 @@ const Membership = ({ onNavigate }) => {
       if (loginData.token) {
         localStorage.setItem('token', loginData.token);
         localStorage.setItem('user', JSON.stringify(loginData.user));
+        setIsLoggedIn(true);
+        setCurrentUser(loginData.user);
         setShowMercadoPagoCheckout(true);
         setPaymentStep('payment');
       } else {
@@ -318,12 +365,11 @@ const Membership = ({ onNavigate }) => {
         <MercadoPagoCheckout 
           selectedPlan={selectedPlan}
           userData={{
-            name: name || email?.split('@')[0] || 'Usuario',
-            email: email || 'usuario@ejemplo.com'
+            name: currentUser?.name || name || email?.split('@')[0] || 'Usuario',
+            email: currentUser?.email || email || 'usuario@ejemplo.com'
           }}
           onSuccess={handlePaymentSuccess}
           onCancel={() => setShowMercadoPagoCheckout(false)}
-          isDemoMode={false}
         />
       )}
     </div>
