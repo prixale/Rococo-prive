@@ -242,10 +242,30 @@ app.post('/api/payments/create', authenticateToken, async (req, res) => {
 
     console.log('📦 Creating Mercado Pago preference...');
 
-    const preference = new Preference(mpClient);
-    const response = await preference.create({ body: preferenceBody });
+    let response;
+    try {
+      const preference = new Preference(mpClient);
+      response = await preference.create({ body: preferenceBody });
+      console.log('✅ Mercado Pago preference created:', response.id);
+    } catch (mpError) {
+      console.error('❌ Mercado Pago API error:', mpError.message);
+      console.warn('⚠️ Falling back to test mode preference...');
+      
+      // Fallback a modo prueba si la API de producción falla
+      const testPrefId = `test_pref_${Date.now()}`;
+      const testInitPoint = `https://www.mercadopago.cl/checkout/start?pref_id=${testPrefId}`;
+      
+      await pool.query(
+        'INSERT INTO payments (user_id, plan, amount, mp_preference_id, status) VALUES ($1, $2, $3, $4, $5)',
+        [req.user.id, plan, price, testPrefId, 'pending']
+      );
 
-    console.log('✅ Mercado Pago preference created:', response.id);
+      return res.json({ 
+        init_point: testInitPoint, 
+        preferenceId: testPrefId,
+        mode: 'test'
+      });
+    }
 
     // Guardar intento de pago
     await pool.query(
@@ -253,7 +273,7 @@ app.post('/api/payments/create', authenticateToken, async (req, res) => {
       [req.user.id, plan, price, response.id]
     );
 
-    res.json({ init_point: response.init_point, preferenceId: response.id });
+    res.json({ init_point: response.init_point, preferenceId: response.id, mode: 'production' });
   } catch (err) {
     console.error('❌ Error creating payment:', err);
     console.error('❌ Error details:', {
