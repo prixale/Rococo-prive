@@ -139,6 +139,35 @@ app.post('/api/auth/login', async (req, res) => {
 
 // --- RUTAS DE PERFIL ---
 
+// Perfiles públicos (sin autenticación)
+app.get('/api/profiles/public', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.phone, u.phone_verified,
+              p.bio, p.photos, p.is_public, p.stats
+       FROM profiles p
+       JOIN users u ON p.user_id = u.id
+       WHERE p.is_public = true
+       ORDER BY u.created_at DESC`
+    );
+    
+    const profiles = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      phone: row.phone_verified ? row.phone : null,
+      bio: row.bio || '',
+      photos: row.photos || [],
+      stats: row.stats || { visits: 0 },
+      is_public: row.is_public
+    }));
+    
+    res.json({ profiles });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo perfiles' });
+  }
+});
+
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const profile = await pool.query('SELECT * FROM profiles WHERE user_id = $1', [req.user.id]);
