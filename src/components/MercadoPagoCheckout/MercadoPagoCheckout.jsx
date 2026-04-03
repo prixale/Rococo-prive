@@ -9,6 +9,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
   const [error, setError] = useState(null);
   const [step, setStep] = useState('init');
   const [redirectUrl, setRedirectUrl] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
   const hasCreatedPreference = useRef(false);
 
   const planPrices = {
@@ -54,6 +55,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
 
   const handleRetry = () => {
     setError(null);
+    setDebugInfo('');
     setStep('init');
     hasCreatedPreference.current = false;
   };
@@ -64,18 +66,21 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
     
     setLoading(true);
     setError(null);
+    setDebugInfo('Iniciando proceso de pago...');
     setStep('creating');
 
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         setError('Debes iniciar sesión para continuar.');
+        setDebugInfo('Error: No se encontró token de autenticación');
         setStep('error');
         setLoading(false);
         hasCreatedPreference.current = false;
         return;
       }
 
+      setDebugInfo('Conectando con el servidor...');
       console.log('📡 Llamando API:', `${API_URL}/api/payments/create`);
       
       const response = await fetch(`${API_URL}/api/payments/create`, {
@@ -90,11 +95,16 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
         })
       });
 
+      setDebugInfo(`Respuesta del servidor: ${response.status}`);
+      console.log('📦 Status:', response.status);
+
       const data = await response.json();
       console.log('📦 Respuesta API:', data);
+      setDebugInfo(`Datos recibidos: ${JSON.stringify(data).substring(0, 100)}...`);
 
       if (data.error) {
         setError(data.error);
+        setDebugInfo(`Error del servidor: ${data.error}`);
         setStep('error');
         setLoading(false);
         hasCreatedPreference.current = false;
@@ -103,18 +113,21 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
 
       if (!data.init_point) {
         setError('No se pudo obtener la URL de pago. Intenta de nuevo.');
+        setDebugInfo('Error: La respuesta no contiene init_point');
         setStep('error');
         setLoading(false);
         hasCreatedPreference.current = false;
         return;
       }
 
+      setDebugInfo('✅ Preferencia creada. Redirigiendo...');
       setRedirectUrl(data.init_point);
       setStep('redirect');
       
     } catch (err) {
       console.error('❌ Error de conexión:', err);
       setError('Error de conexión. Verifica tu conexión e intenta de nuevo.');
+      setDebugInfo(`Error de red: ${err.message}`);
       setStep('error');
       hasCreatedPreference.current = false;
     } finally {
@@ -206,6 +219,12 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
               </div>
             )}
 
+            {debugInfo && (
+              <div className="mp-debug">
+                <span>{debugInfo}</span>
+              </div>
+            )}
+
             <div className="mp-actions">
               <button className="btn-back" onClick={onCancel}>
                 Cancelar
@@ -238,7 +257,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
           <div className="mp-loading">
             <Loader2 size={48} className="spin" />
             <h3>Conectando con Mercado Pago...</h3>
-            <p>Por favor espera</p>
+            <p>{debugInfo || 'Por favor espera'}</p>
           </div>
         )}
 
@@ -246,7 +265,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
           <div className="mp-redirect">
             <div className="mp-redirect-icon">🟢</div>
             <h3>Redireccionando a Mercado Pago...</h3>
-            <p>Serás redirigido automáticamente</p>
+            <p>{debugInfo || 'Serás redirigido automáticamente'}</p>
             <div className="redirect-actions">
               <p>Si no eres redirigido automáticamente:</p>
               <button className="btn-redirect-mp" onClick={redirectToMercadoPago}>
@@ -279,6 +298,7 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
             <AlertCircle size={48} />
             <h3>Error en el pago</h3>
             <p>{error || 'Ocurrió un error al procesar el pago'}</p>
+            {debugInfo && <p className="debug-text">{debugInfo}</p>}
             <div className="error-actions">
               <button className="btn-retry" onClick={handleRetry}>
                 <RefreshCw size={18} /> Intentar de nuevo
