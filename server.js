@@ -199,9 +199,28 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
 
 app.post('/api/payments/create', authenticateToken, async (req, res) => {
   try {
+    console.log('📝 Payment request received:', {
+      userId: req.user.id,
+      plan: req.body.plan,
+      price: req.body.price
+    });
+
     const { plan, price } = req.body;
+
+    if (!plan || !price) {
+      console.error('❌ Missing plan or price:', { plan, price });
+      return res.status(400).json({ error: 'Faltan datos requeridos (plan, price)' });
+    }
+
     const user = await pool.query('SELECT email, name FROM users WHERE id = $1', [req.user.id]);
     const userData = user.rows[0];
+
+    if (!userData) {
+      console.error('❌ User not found:', req.user.id);
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    console.log('👤 User data:', { email: userData.email, name: userData.name });
 
     const preferenceBody = {
       items: [{
@@ -213,7 +232,7 @@ app.post('/api/payments/create', authenticateToken, async (req, res) => {
       }],
       payer: { email: userData.email, name: userData.name },
       back_urls: {
-        success: `${FRONTEND_URL}/dashboard?payment=success`,
+        success: `${FRONTEND_URL}/membership?payment=success`,
         failure: `${FRONTEND_URL}/membership?payment=failure`,
         pending: `${FRONTEND_URL}/membership?payment=pending`
       },
@@ -221,8 +240,12 @@ app.post('/api/payments/create', authenticateToken, async (req, res) => {
       external_reference: `user_${req.user.id}`
     };
 
+    console.log('📦 Creating Mercado Pago preference...');
+
     const preference = new Preference(mpClient);
     const response = await preference.create({ body: preferenceBody });
+
+    console.log('✅ Mercado Pago preference created:', response.id);
 
     // Guardar intento de pago
     await pool.query(
@@ -232,8 +255,16 @@ app.post('/api/payments/create', authenticateToken, async (req, res) => {
 
     res.json({ init_point: response.init_point, preferenceId: response.id });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error creando pago' });
+    console.error('❌ Error creating payment:', err);
+    console.error('❌ Error details:', {
+      message: err.message,
+      stack: err.stack,
+      cause: err.cause
+    });
+    res.status(500).json({ 
+      error: 'Error creando pago',
+      details: err.message 
+    });
   }
 });
 
