@@ -27,6 +27,9 @@ const mpClient = new MercadoPagoConfig({
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN 
 });
 
+// Log de verificación de token al inicio
+console.log('🔑 Mercado Pago Token:', process.env.MERCADO_PAGO_ACCESS_TOKEN ? `Configurado (${process.env.MERCADO_PAGO_ACCESS_TOKEN.length} chars)` : '❌ NO CONFIGURADO');
+
 // Middleware
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
