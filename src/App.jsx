@@ -189,7 +189,7 @@ function App() {
       <main className="main-content">
         {renderPage()}
       </main>
-      <Footer />
+      <Footer onNavigate={setCurrentPage} />
       <MobileNav onNavigate={setCurrentPage} activePage={currentPage} />
     </div>
   );

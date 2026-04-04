@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Menu, X, ChevronRight, MapPin, Loader, Settings } from 'lucide-react';
+import { Menu, X, ChevronRight, MapPin, Loader, Settings, User } from 'lucide-react';
 import './Navbar.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const Logo3D = ({ onClick }) => {
   const x = useMotionValue(0);
@@ -48,6 +50,9 @@ const Logo3D = ({ onClick }) => {
 const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,10 +62,46 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        setIsLoggedIn(true);
+        setIsAdmin(userData.role === 'admin');
+        setUserName(userData.name || '');
+      } catch (e) {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        setUserName('');
+      }
+    } else {
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setUserName('');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    setUserName('');
+    onNavigate('home');
+  };
+
   const navLinks = [
     { id: 'home', label: 'INICIO' },
     { id: 'discover', label: 'DESCUBRIR' },
     { id: 'membership', label: 'MEMBRESÍA' },
+    { id: 'bookings', label: 'RESERVAS' },
   ];
 
   return (
@@ -102,36 +143,58 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
           ) : (
             <div className="location-error">
               <MapPin size={14} />
-              <span>Chile</span>
+              <span>Ubicación</span>
             </div>
           )}
         </div>
 
         <div className="nav-actions desktop-only">
-          <motion.button 
-            className="btn-admin-refined" 
-            onClick={() => onNavigate('admin')}
-            whileHover={{ scale: 1.1, color: 'var(--color-gold)' }}
-            style={{ background: 'transparent', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '10px' }}
-            title="Panel de Dueño"
-          >
-            <Settings size={18} />
-          </motion.button>
-          <motion.button 
-            className="btn-login-refined" 
-            onClick={() => onNavigate('dashboard')}
-            whileHover={{ scale: 1.05, border: '1px solid var(--color-gold)' }}
-          >
-            INICIAR SESIÓN
-          </motion.button>
-          <motion.button 
-            className="btn-primary-refined"
-            whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(212, 175, 55, 0.5)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onNavigate('membership')}
-          >
-            REGÍSTRATE
-          </motion.button>
+          {isLoggedIn ? (
+            <>
+              <motion.button 
+                className="btn-user-refined"
+                onClick={() => onNavigate('dashboard')}
+                whileHover={{ scale: 1.05 }}
+              >
+                <User size={16} /> {userName}
+              </motion.button>
+              {isAdmin && (
+                <motion.button 
+                  className="btn-admin-refined" 
+                  onClick={() => onNavigate('admin')}
+                  whileHover={{ scale: 1.1, color: 'var(--color-gold)' }}
+                  title="Panel de Dueño"
+                >
+                  <Settings size={18} />
+                </motion.button>
+              )}
+              <motion.button 
+                className="btn-logout-refined"
+                onClick={handleLogout}
+                whileHover={{ scale: 1.05 }}
+              >
+                SALIR
+              </motion.button>
+            </>
+          ) : (
+            <>
+              <motion.button 
+                className="btn-login-refined" 
+                onClick={() => onNavigate('membership')}
+                whileHover={{ scale: 1.05, border: '1px solid var(--color-gold)' }}
+              >
+                INICIAR SESIÓN
+              </motion.button>
+              <motion.button 
+                className="btn-primary-refined"
+                whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(212, 175, 55, 0.5)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onNavigate('membership')}
+              >
+                REGÍSTRATE
+              </motion.button>
+            </>
+          )}
         </div>
 
         <button 
@@ -163,12 +226,30 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
                 </motion.button>
               ))}
               <hr className="menu-divider" />
-              <button className="mobile-menu-item" onClick={() => { onNavigate('dashboard'); setIsMenuOpen(false); }}>
-                MI CUENTA
-              </button>
-              <button className="mobile-menu-item" onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} style={{ color: 'var(--color-gold)' }}>
-                <Settings size={16} style={{display: 'inline', marginRight: '8px'}}/> PANEL DUEÑO
-              </button>
+              {isLoggedIn ? (
+                <>
+                  <button className="mobile-menu-item" onClick={() => { onNavigate('dashboard'); setIsMenuOpen(false); }}>
+                    <User size={16} style={{display: 'inline', marginRight: '8px'}}/> MI CUENTA ({userName})
+                  </button>
+                  {isAdmin && (
+                    <button className="mobile-menu-item" onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} style={{ color: 'var(--color-gold)' }}>
+                      <Settings size={16} style={{display: 'inline', marginRight: '8px'}}/> PANEL DUEÑO
+                    </button>
+                  )}
+                  <button className="mobile-menu-item" onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ color: 'var(--color-provocative)' }}>
+                    CERRAR SESIÓN
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="mobile-menu-item" onClick={() => { onNavigate('membership'); setIsMenuOpen(false); }}>
+                    INICIAR SESIÓN
+                  </button>
+                  <button className="mobile-menu-item" onClick={() => { onNavigate('membership'); setIsMenuOpen(false); }} style={{ color: 'var(--color-gold)' }}>
+                    REGÍSTRATE
+                  </button>
+                </>
+              )}
             </div>
           </motion.div>
         )}
