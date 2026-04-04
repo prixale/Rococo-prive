@@ -95,8 +95,23 @@ const MercadoPagoCheckout = ({ selectedPlan, userData, onSuccess, onCancel }) =>
         })
       });
 
-      setDebugInfo(`Respuesta del servidor: ${response.status}`);
-      console.log('📦 Status:', response.status);
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        if (response.status === 401 || response.status === 403) {
+          setError('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setTimeout(() => window.location.href = '/membership', 2000);
+          return;
+        } else {
+          setError('Error del servidor. Intenta de nuevo.');
+          setStep('error');
+          setLoading(false);
+          return;
+        }
+      }
 
       const data = await response.json();
       console.log('📦 Respuesta API:', data);
