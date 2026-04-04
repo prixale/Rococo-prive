@@ -1,7 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaUsers, FaGem, FaChartLine, FaMoneyBillWave, FaCog, FaCheckCircle, FaTimesCircle, FaSignOutAlt } from 'react-icons/fa';
+import { FaUsers, FaGem, FaChartLine, FaMoneyBillWave, FaCog, FaCheckCircle, FaTimesCircle, FaSignOutAlt, FaPlus, FaEdit, FaTrash, FaSave, FaClock, FaCalendarAlt, FaCalendarWeek, FaCalendar } from 'react-icons/fa';
 import './AdminDashboard.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+const DEFAULT_MEMBERSHIP_PLANS = [
+  {
+    id: 'hourly',
+    name: 'Pase por Hora',
+    description: 'Acceso temporal por horas',
+    icon: '⏰',
+    durations: [
+      { id: '1h', label: '1 Hora', price: 5000, active: true },
+      { id: '3h', label: '3 Horas', price: 12000, active: true },
+      { id: '6h', label: '6 Horas', price: 20000, active: true }
+    ],
+    benefits: ['Perfil visible', 'Chat básico', '1 foto destacada'],
+    active: true
+  },
+  {
+    id: 'daily',
+    name: 'Pase Diario',
+    description: 'Acceso completo por un día',
+    icon: '📅',
+    durations: [
+      { id: '1d', label: '1 Día', price: 15000, active: true },
+      { id: '3d', label: '3 Días', price: 35000, active: true }
+    ],
+    benefits: ['Perfil visible', 'Chat ilimitado', '5 fotos destacadas', 'Aparición en destacados'],
+    active: true
+  },
+  {
+    id: 'weekly',
+    name: 'Pase Semanal',
+    description: 'Acceso premium por una semana',
+    icon: '📆',
+    durations: [
+      { id: '1w', label: '1 Semana', price: 49990, active: true },
+      { id: '2w', label: '2 Semanas', price: 89990, active: true }
+    ],
+    benefits: ['Perfil verificado', 'Chat ilimitado', '15 fotos destacadas', 'Aparición en destacados', 'Prioridad en búsquedas', 'Estadísticas básicas'],
+    active: true
+  },
+  {
+    id: 'monthly',
+    name: 'Membresía Mensual',
+    description: 'Acceso élite completo por un mes',
+    icon: '👑',
+    durations: [
+      { id: '1m', label: '1 Mes', price: 149990, active: true },
+      { id: '3m', label: '3 Meses', price: 399990, active: true },
+      { id: '6m', label: '6 Meses', price: 749990, active: true }
+    ],
+    benefits: ['Perfil verificado VIP', 'Chat ilimitado', 'Fotos ilimitadas', 'Posición #1 en búsquedas', 'Estadísticas avanzadas', 'Soporte prioritario', 'Badge exclusivo', 'Acceso a eventos VIP'],
+    active: true
+  }
+];
 
 const MOCK_STATS = {
   revenue: 0,
@@ -10,24 +65,29 @@ const MOCK_STATS = {
   pendingProfiles: 0
 };
 
-const INITIAL_COMMISSIONS = [];
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 const AdminDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(MOCK_STATS);
   const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  const [commissions, setCommissions] = useState(INITIAL_COMMISSIONS);
-  const [editingCommission, setEditingCommission] = useState(null);
+  const [membershipPlans, setMembershipPlans] = useState(() => {
+    const saved = localStorage.getItem('rococo_membership_plans');
+    return saved ? JSON.parse(saved) : DEFAULT_MEMBERSHIP_PLANS;
+  });
   
-  const [siteSettings, setSiteSettings] = useState({
-    siteName: 'Rococo Privé',
-    allowNewRegistrations: true,
-    maintenanceMode: false,
-    globalAnnouncement: ''
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [editingDuration, setEditingDuration] = useState(null);
+  const [newBenefit, setNewBenefit] = useState('');
+  
+  const [siteSettings, setSiteSettings] = useState(() => {
+    const saved = localStorage.getItem('rococo_site_settings');
+    return saved ? JSON.parse(saved) : {
+      siteName: 'Rococo Privé',
+      allowNewRegistrations: true,
+      maintenanceMode: false,
+      globalAnnouncement: ''
+    };
   });
 
   useEffect(() => {
@@ -54,54 +114,106 @@ const AdminDashboard = ({ onLogout }) => {
     }
   };
 
-  // Update localStorage helper
-  const updateProfilesStorage = (profiles) => {
-    setAllProfiles([...profiles]);
-    localStorage.setItem('rococo_data_all_profiles', JSON.stringify(profiles)); // sync state if using global array
-    // Also update individual item if needed
-    profiles.forEach(p => {
-       localStorage.setItem(`rococo_data_${p.email}`, JSON.stringify(p));
-    });
+  const saveMembershipPlans = (plans) => {
+    setMembershipPlans(plans);
+    localStorage.setItem('rococo_membership_plans', JSON.stringify(plans));
   };
 
-  const handleToggleProfileStatus = (email) => {
-    const updated = allProfiles.map(p => {
-      if (p.email === email) {
-        return { ...p, isPublic: !p.isPublic };
+  const handleAddPlan = () => {
+    const newPlan = {
+      id: `plan_${Date.now()}`,
+      name: 'Nuevo Plan',
+      description: 'Descripción del plan',
+      icon: '⭐',
+      durations: [{ id: 'custom', label: 'Personalizado', price: 0, active: true }],
+      benefits: ['Beneficio básico'],
+      active: true
+    };
+    saveMembershipPlans([...membershipPlans, newPlan]);
+    setEditingPlan(newPlan.id);
+  };
+
+  const handleUpdatePlan = (planId, updates) => {
+    const updated = membershipPlans.map(p => p.id === planId ? { ...p, ...updates } : p);
+    saveMembershipPlans(updated);
+  };
+
+  const handleDeletePlan = (planId) => {
+    if (window.confirm('¿Eliminar este plan permanentemente?')) {
+      saveMembershipPlans(membershipPlans.filter(p => p.id !== planId));
+      if (editingPlan === planId) setEditingPlan(null);
+    }
+  };
+
+  const handleAddDuration = (planId) => {
+    const plan = membershipPlans.find(p => p.id === planId);
+    const updated = membershipPlans.map(p => {
+      if (p.id === planId) {
+        return {
+          ...p,
+          durations: [...p.durations, { id: `dur_${Date.now()}`, label: 'Nueva duración', price: 0, active: true }]
+        };
       }
       return p;
     });
-    updateProfilesStorage(updated);
+    saveMembershipPlans(updated);
   };
 
-  const handleSaveCommission = (id, newPercentage, newPrice) => {
-    const updated = commissions.map(c => {
-      if (c.id === id) {
-        return { 
-          ...c, 
-          percentage: newPercentage !== '' ? Number(newPercentage) : null,
-          basePrice: newPrice !== '' ? Number(newPrice) : null
+  const handleUpdateDuration = (planId, durationId, updates) => {
+    const updated = membershipPlans.map(p => {
+      if (p.id === planId) {
+        return {
+          ...p,
+          durations: p.durations.map(d => d.id === durationId ? { ...d, ...updates } : d)
         };
       }
-      return c;
+      return p;
     });
-    setCommissions(updated);
-    localStorage.setItem('rococo_commissions', JSON.stringify(updated));
-    setEditingCommission(null);
+    saveMembershipPlans(updated);
+  };
+
+  const handleDeleteDuration = (planId, durationId) => {
+    const updated = membershipPlans.map(p => {
+      if (p.id === planId) {
+        return { ...p, durations: p.durations.filter(d => d.id !== durationId) };
+      }
+      return p;
+    });
+    saveMembershipPlans(updated);
+  };
+
+  const handleAddBenefit = (planId) => {
+    if (!newBenefit.trim()) return;
+    const plan = membershipPlans.find(p => p.id === planId);
+    const updated = membershipPlans.map(p => {
+      if (p.id === planId) {
+        return { ...p, benefits: [...p.benefits, newBenefit.trim()] };
+      }
+      return p;
+    });
+    saveMembershipPlans(updated);
+    setNewBenefit('');
+  };
+
+  const handleDeleteBenefit = (planId, index) => {
+    const updated = membershipPlans.map(p => {
+      if (p.id === planId) {
+        return { ...p, benefits: p.benefits.filter((_, i) => i !== index) };
+      }
+      return p;
+    });
+    saveMembershipPlans(updated);
   };
 
   const handleSaveSettings = (e) => {
     e.preventDefault();
     localStorage.setItem('rococo_site_settings', JSON.stringify(siteSettings));
-    alert("Ajustes del sitio guardados correctamente.");
+    alert('Ajustes guardados correctamente.');
   };
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
   const itemVariants = {
@@ -114,9 +226,9 @@ const AdminDashboard = ({ onLogout }) => {
       <motion.div variants={itemVariants} className="stat-card glass-effect">
         <div className="stat-icon revenue-icon"><FaMoneyBillWave /></div>
         <div className="stat-info">
-          <h3>Ingresos (Semana)</h3>
-          <p className="stat-value">${stats.revenue}</p>
-          <span className="stat-trend positive">+12% vs última sem.</span>
+          <h3>Ingresos Totales</h3>
+          <p className="stat-value">${stats.revenue.toLocaleString('es-CL')}</p>
+          <span className="stat-trend positive">Desde el inicio</span>
         </div>
       </motion.div>
       <motion.div variants={itemVariants} className="stat-card glass-effect">
@@ -124,15 +236,15 @@ const AdminDashboard = ({ onLogout }) => {
         <div className="stat-info">
           <h3>Perfiles Activos</h3>
           <p className="stat-value">{stats.activeProfiles}</p>
-          <span className="stat-trend">+5 Nuevos</span>
+          <span className="stat-trend">Registrados</span>
         </div>
       </motion.div>
       <motion.div variants={itemVariants} className="stat-card glass-effect">
         <div className="stat-icon mem-icon"><FaGem /></div>
         <div className="stat-info">
-          <h3>Nuevos VIPs</h3>
-          <p className="stat-value">{stats.newMemberships}</p>
-          <span className="stat-trend positive">+20% Renovaciones</span>
+          <h3>Planes Activos</h3>
+          <p className="stat-value">{membershipPlans.filter(p => p.active).length}</p>
+          <span className="stat-trend positive">{membershipPlans.length} configurados</span>
         </div>
       </motion.div>
       <motion.div variants={itemVariants} className="stat-card glass-effect">
@@ -140,79 +252,162 @@ const AdminDashboard = ({ onLogout }) => {
         <div className="stat-info">
           <h3>Perfiles Pendientes</h3>
           <p className="stat-value">{stats.pendingProfiles}</p>
-          <button className="small-action-btn">Revisar</button>
+          <button className="small-action-btn" onClick={() => setActiveTab('profiles')}>Revisar</button>
         </div>
       </motion.div>
     </motion.div>
   );
 
-  const renderCommissions = () => (
+  const renderMembershipPlans = () => (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="admin-section glass-effect">
       <div className="section-header">
-        <h2>Estructura de Comisiones y Precios</h2>
-        <button className="btn-primary" style={{padding: '8px 15px'}}>Añadir Nueva</button>
+        <h2>💎 Gestión de Membresías y Planes</h2>
+        <button className="btn-primary" onClick={handleAddPlan}>
+          <FaPlus /> Añadir Plan
+        </button>
       </div>
-      <div className="table-responsive">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Concepto</th>
-              <th>Porcentaje (%) Casa</th>
-              <th>Precio Base ($)</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {commissions.map(item => (
-              <tr key={item.id}>
-                <td>{item.type}</td>
-                {editingCommission === item.id ? (
-                  <>
-                    <td>
-                      <input type="number" id={`pct-${item.id}`} defaultValue={item.percentage || ''} className="inline-edit-input" placeholder="Ej: 15" />
-                    </td>
-                    <td>
-                      <input type="number" id={`price-${item.id}`} defaultValue={item.basePrice || ''} className="inline-edit-input" placeholder="Ej: 100" />
-                    </td>
-                    <td>
-                      <button className="btn-text" style={{color: '#00FF88'}} onClick={() => {
-                        const pct = document.getElementById(`pct-${item.id}`).value;
-                        const price = document.getElementById(`price-${item.id}`).value;
-                        handleSaveCommission(item.id, pct, price);
-                      }}>Guardar</button>
-                      <button className="btn-text" style={{color: '#FF0055', marginLeft: '10px'}} onClick={() => setEditingCommission(null)}>Cancelar</button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="text-gold font-bold">{item.percentage ? `${item.percentage}%` : 'N/A'}</td>
-                    <td>{item.basePrice ? `$${item.basePrice}` : 'Variable'}</td>
-                    <td>
-                      <button className="btn-text" style={{marginRight: '10px'}} onClick={() => setEditingCommission(item.id)}><FaCog /> Editar</button>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="membership-plans-grid">
+        {membershipPlans.map(plan => (
+          <motion.div key={plan.id} className="membership-plan-card glass-effect" layout>
+            <div className="plan-card-header">
+              <div className="plan-icon">{plan.icon}</div>
+              <div className="plan-title">
+                <h3>{plan.name}</h3>
+                <p>{plan.description}</p>
+              </div>
+              <div className="plan-actions">
+                <button className="btn-icon" onClick={() => setEditingPlan(editingPlan === plan.id ? null : plan.id)}>
+                  <FaEdit />
+                </button>
+                <button className="btn-icon danger" onClick={() => handleDeletePlan(plan.id)}>
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
+
+            <div className="plan-status">
+              <label className="toggle-switch">
+                <input 
+                  type="checkbox" 
+                  checked={plan.active} 
+                  onChange={() => handleUpdatePlan(plan.id, { active: !plan.active })}
+                />
+                <span className="toggle-slider"></span>
+                <span>{plan.active ? 'Activo' : 'Inactivo'}</span>
+              </label>
+            </div>
+
+            {editingPlan === plan.id && (
+              <motion.div className="plan-edit-form" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                <div className="form-group">
+                  <label>Nombre del Plan</label>
+                  <input 
+                    type="text" 
+                    value={plan.name} 
+                    onChange={(e) => handleUpdatePlan(plan.id, { name: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Descripción</label>
+                  <input 
+                    type="text" 
+                    value={plan.description} 
+                    onChange={(e) => handleUpdatePlan(plan.id, { description: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Ícono (emoji)</label>
+                  <input 
+                    type="text" 
+                    value={plan.icon} 
+                    onChange={(e) => handleUpdatePlan(plan.id, { icon: e.target.value })}
+                    maxLength={2}
+                  />
+                </div>
+
+                <h4>⏱️ Duraciones y Precios</h4>
+                <div className="durations-list">
+                  {plan.durations.map(duration => (
+                    <div key={duration.id} className="duration-item">
+                      <div className="duration-fields">
+                        <input 
+                          type="text" 
+                          value={duration.label} 
+                          onChange={(e) => handleUpdateDuration(plan.id, duration.id, { label: e.target.value })}
+                          placeholder="Ej: 1 Hora"
+                          className="duration-label"
+                        />
+                        <input 
+                          type="number" 
+                          value={duration.price} 
+                          onChange={(e) => handleUpdateDuration(plan.id, duration.id, { price: parseInt(e.target.value) || 0 })}
+                          placeholder="Precio"
+                          className="duration-price"
+                        />
+                        <label className="toggle-switch small">
+                          <input 
+                            type="checkbox" 
+                            checked={duration.active} 
+                            onChange={() => handleUpdateDuration(plan.id, duration.id, { active: !duration.active })}
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+                      <button className="btn-icon danger small" onClick={() => handleDeleteDuration(plan.id, duration.id)}>
+                        <FaTimesCircle />
+                      </button>
+                    </div>
+                  ))}
+                  <button className="btn-add-duration" onClick={() => handleAddDuration(plan.id)}>
+                    <FaPlus /> Añadir Duración
+                  </button>
+                </div>
+
+                <h4>✨ Beneficios</h4>
+                <ul className="benefits-list">
+                  {plan.benefits.map((benefit, index) => (
+                    <li key={index} className="benefit-item">
+                      <FaCheckCircle className="benefit-check" />
+                      <span>{benefit}</span>
+                      <button className="btn-icon danger small" onClick={() => handleDeleteBenefit(plan.id, index)}>
+                        <FaTimesCircle />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="add-benefit-form">
+                  <input 
+                    type="text" 
+                    value={newBenefit} 
+                    onChange={(e) => setNewBenefit(e.target.value)}
+                    placeholder="Nuevo beneficio..."
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddBenefit(plan.id)}
+                  />
+                  <button className="btn-primary small" onClick={() => handleAddBenefit(plan.id)}>
+                    <FaPlus /> Añadir
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        ))}
       </div>
     </motion.div>
   );
 
   const renderProfiles = () => (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="admin-section glass-effect">
-      <h2>Gestión de Perfiles Registrados</h2>
+      <h2>👥 Gestión de Perfiles Registrados</h2>
       {allProfiles.length === 0 ? (
-        <p className="empty-state">No hay perfiles creados localmente todavía.</p>
+        <p className="empty-state">No hay perfiles registrados todavía.</p>
       ) : (
         <div className="table-responsive">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Nombre / Alias</th>
+                <th>Nombre</th>
                 <th>Estado</th>
-                <th>Añadido</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -221,19 +416,28 @@ const AdminDashboard = ({ onLogout }) => {
                 <tr key={idx}>
                   <td className="profile-cell">
                     {p.photos?.[0]?.url && <img src={p.photos[0].url} alt="pic" className="mini-avatar" />}
-                    <span>{p.profile?.name || p.email}</span>
+                    <span>{p.name || 'Sin nombre'}</span>
                   </td>
                   <td>
-                    <span className={`status-badge ${p.isPublic ? 'active' : 'pending'}`}>
-                      {p.isPublic ? 'Público VIP' : 'Oculto'}
+                    <span className={`status-badge ${p.is_public ? 'active' : 'pending'}`}>
+                      {p.is_public ? 'Público' : 'Oculto'}
                     </span>
                   </td>
-                  <td>Hoy</td>
                   <td className="actions-cell">
-                    {!p.isPublic ? (
-                      <button className="approve-btn" onClick={() => handleToggleProfileStatus(p.email)}><FaCheckCircle /> Aprobar</button>
+                    {!p.is_public ? (
+                      <button className="approve-btn" onClick={() => {
+                        const updated = allProfiles.map(profile => 
+                          profile.id === p.id ? { ...profile, is_public: true } : profile
+                        );
+                        setAllProfiles(updated);
+                      }}><FaCheckCircle /> Aprobar</button>
                     ) : (
-                      <button className="suspend-btn" onClick={() => handleToggleProfileStatus(p.email)}><FaTimesCircle /> Suspender</button>
+                      <button className="suspend-btn" onClick={() => {
+                        const updated = allProfiles.map(profile => 
+                          profile.id === p.id ? { ...profile, is_public: false } : profile
+                        );
+                        setAllProfiles(updated);
+                      }}><FaTimesCircle /> Ocultar</button>
                     )}
                   </td>
                 </tr>
@@ -247,54 +451,31 @@ const AdminDashboard = ({ onLogout }) => {
 
   const renderSettings = () => (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="admin-section glass-effect">
-      <h2>Ajustes Generales del Sitio</h2>
+      <h2>⚙️ Ajustes Generales del Sitio</h2>
       <form onSubmit={handleSaveSettings} className="settings-form">
         <div className="form-group-refined">
           <label>Nombre del Sitio</label>
-          <input 
-            type="text" 
-            value={siteSettings.siteName} 
-            onChange={(e) => setSiteSettings({...siteSettings, siteName: e.target.value})}
-            className="input-refined"
-          />
+          <input type="text" value={siteSettings.siteName} onChange={(e) => setSiteSettings({...siteSettings, siteName: e.target.value})} className="input-refined" />
         </div>
-        
         <div className="form-group-refined row-group">
           <label className="checkbox-label">
-            <input 
-              type="checkbox" 
-              checked={siteSettings.allowNewRegistrations}
-              onChange={(e) => setSiteSettings({...siteSettings, allowNewRegistrations: e.target.checked})}
-            />
+            <input type="checkbox" checked={siteSettings.allowNewRegistrations} onChange={(e) => setSiteSettings({...siteSettings, allowNewRegistrations: e.target.checked})} />
             <span className="custom-checkbox"></span>
             Permitir Nuevos Registros
           </label>
         </div>
-
         <div className="form-group-refined row-group">
           <label className="checkbox-label">
-            <input 
-              type="checkbox" 
-              checked={siteSettings.maintenanceMode}
-              onChange={(e) => setSiteSettings({...siteSettings, maintenanceMode: e.target.checked})}
-            />
+            <input type="checkbox" checked={siteSettings.maintenanceMode} onChange={(e) => setSiteSettings({...siteSettings, maintenanceMode: e.target.checked})} />
             <span className="custom-checkbox"></span>
-            Modo Mantenimiento (Ocultar sitio al público)
+            Modo Mantenimiento
           </label>
         </div>
-
         <div className="form-group-refined">
-          <label>Anuncio Global (Banner)</label>
-          <textarea 
-            value={siteSettings.globalAnnouncement} 
-            onChange={(e) => setSiteSettings({...siteSettings, globalAnnouncement: e.target.value})}
-            className="input-refined"
-            placeholder="Mensaje que aparecerá en la parte superior de todas las páginas..."
-            rows="3"
-          />
+          <label>Anuncio Global</label>
+          <textarea value={siteSettings.globalAnnouncement} onChange={(e) => setSiteSettings({...siteSettings, globalAnnouncement: e.target.value})} className="input-refined" placeholder="Mensaje para mostrar en el sitio..." rows="3" />
         </div>
-
-        <button type="submit" className="btn-primary">Guardar Ajustes</button>
+        <button type="submit" className="btn-primary"><FaSave /> Guardar Ajustes</button>
       </form>
     </motion.div>
   );
@@ -306,30 +487,20 @@ const AdminDashboard = ({ onLogout }) => {
           <h1>PANEL <span className="text-glow">dueño</span></h1>
           <p>Centro de Comando y Configuración de Rococo Privé</p>
         </div>
-        <button className="btn-logout" onClick={onLogout}>
-          <FaSignOutAlt /> Salir
-        </button>
+        <button className="btn-logout" onClick={onLogout}><FaSignOutAlt /> Salir</button>
       </div>
 
       <div className="admin-tabs">
-        <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
-          Métricas y Resumen
-        </button>
-        <button className={`tab-btn ${activeTab === 'commissions' ? 'active' : ''}`} onClick={() => setActiveTab('commissions')}>
-          Comisiones y Precios
-        </button>
-        <button className={`tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => setActiveTab('profiles')}>
-          Verificación de Perfiles
-        </button>
-        <button className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-          Ajustes del Sitio
-        </button>
+        <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>📊 Resumen</button>
+        <button className={`tab-btn ${activeTab === 'memberships' ? 'active' : ''}`} onClick={() => setActiveTab('memberships')}>💎 Membresías</button>
+        <button className={`tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => setActiveTab('profiles')}>👥 Perfiles</button>
+        <button className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️ Ajustes</button>
       </div>
 
       <div className="admin-content">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && <motion.div key="ov" exit={{opacity: 0}}>{renderOverview()}</motion.div>}
-          {activeTab === 'commissions' && <motion.div key="co" exit={{opacity: 0}}>{renderCommissions()}</motion.div>}
+          {activeTab === 'memberships' && <motion.div key="mp" exit={{opacity: 0}}>{renderMembershipPlans()}</motion.div>}
           {activeTab === 'profiles' && <motion.div key="pr" exit={{opacity: 0}}>{renderProfiles()}</motion.div>}
           {activeTab === 'settings' && <motion.div key="se" exit={{opacity: 0}}>{renderSettings()}</motion.div>}
         </AnimatePresence>
