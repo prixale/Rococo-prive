@@ -266,26 +266,6 @@
   color: var(--color-gold);
 }
 
-.reset-password-link {
-  text-align: center;
-  margin-top: 0.5rem;
-}
-
-.btn-reset {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  cursor: pointer;
-  text-decoration: underline;
-  transition: color 0.3s ease;
-  padding: 0.5rem;
-}
-
-.btn-reset:hover {
-  color: var(--color-provocative);
-}
-
 .admin-login-footer {
   position: absolute;
   bottom: 2rem;
