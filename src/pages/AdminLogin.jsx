@@ -245,6 +245,22 @@ const AdminLogin = ({ onLoginSuccess }) => {
               )}
             </button>
 
+            <div className="reset-password-link">
+              <button 
+                type="button" 
+                className="btn-reset"
+                onClick={() => {
+                  if (window.confirm('¿Estás seguro de que quieres restablecer la contraseña? Se borrará la configuración actual.')) {
+                    localStorage.removeItem(ADMIN_HASH_KEY);
+                    localStorage.removeItem(ADMIN_PASSWORD_KEY);
+                    window.location.reload();
+                  }
+                }}
+              >
+                Olvidé mi contraseña / Restablecer
+              </button>
+            </div>
+
             <div className="back-link">
               <a href="#" onClick={(e) => { e.preventDefault(); window.history.back(); }}>
                 ← Volver al sitio
