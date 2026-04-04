@@ -60,7 +60,7 @@ const HeroLogo3D = () => {
   );
 };
 
-const Hero = () => {
+const Hero = ({ onNavigate }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -104,8 +104,8 @@ const Hero = () => {
         </motion.p>
 
         <motion.div className="hero-cta-wrapper" variants={itemVariants}>
-          <button className="hero-btn-primary">EXPLORAR ESCORTS</button>
-          <button className="hero-btn-secondary">VER MEMBRESÍAS</button>
+          <button className="hero-btn-primary" onClick={() => onNavigate && onNavigate('discover')}>EXPLORAR ESCORTS</button>
+          <button className="hero-btn-secondary" onClick={() => onNavigate && onNavigate('membership')}>VER MEMBRESÍAS</button>
         </motion.div>
       </motion.div>
     </section>

@@ -4,36 +4,13 @@ import { X, Heart, MessageSquare, Phone, MapPin, Star, ShieldCheck, ChevronRight
 import PhotoGallery from '../PhotoGallery/PhotoGallery';
 import './ProfileDetail.css';
 
-const defaultServices = [
-  { name: 'Cena acompañante', premium: true },
-  { name: 'Viajes internacionales', premium: true },
-  { name: 'Eventos sociales y galas', premium: true },
-  { name: 'Trato de novios (GFE)', premium: true },
-  { name: 'Experiencia de pareja (PSE)', premium: true },
-  { name: 'Compañía para eventos de negocio', premium: true },
-  { name: 'Compañía para teatros y óperas', premium: true },
-  { name: 'Compañía para turistas', premium: true },
-  { name: 'Compañía para conciertos', premium: true },
-  { name: 'Servicios de traducción e interpretación', premium: true },
-  { name: 'Experiencias de arte y cultura', premium: true },
-  { name: 'Experiencias de vino y cata', premium: true },
-  { name: 'Servicios de acompañamiento a reuniones', premium: true },
-  { name: 'Organización de viajes temáticos', premium: true },
-  { name: 'Viajes de fin de semana', premium: true },
-  { name: 'Servicios de compañía ejecutiva', premium: true },
-  { name: 'Acompañamiento a eventos de alto nivel', premium: true },
-  { name: 'Servicios de acompañamiento a premieres y estrenos', premium: true },
-  { name: 'Servicios de acompañamiento a eventos deportivos', premium: true },
-  { name: 'Servicios de acompañamiento a ferias y exposiciones', premium: true },
-];
-
 const ProfileDetail = ({ profile, onClose }) => {
   const [activeTab, setActiveTab] = useState('photos');
 
   const formatPrice = (p) => {
     if (!p) return 'Consultar';
     if (typeof p === 'number') {
-      return p > 10000 ? `$${p.toLocaleString('es-CL')}` : `$${p}`;
+      return p > 1000 ? `$${p.toLocaleString('es-CL')}` : `$${p}`;
     }
     return p;
   };
@@ -107,28 +84,28 @@ const ProfileDetail = ({ profile, onClose }) => {
     return null;
   }
 
+  // Solo usar datos reales del perfil
+  const bio = profile.bio && typeof profile.bio === 'object' ? profile.bio : {};
+  
   const characteristics = [
-    { label: 'Edad', value: profile?.age || '24 años' },
-    { label: 'Estatura', value: profile?.height || '170 cm' },
-    { label: 'Cabello', value: profile?.hair || profile?.pelo || 'Castaño' },
-    { label: 'Idiomas', value: profile?.languages || profile?.idiomas || 'Español, Inglés' },
-  ];
+    { label: 'Edad', value: bio.age || 'No especificada' },
+    { label: 'Estatura', value: bio.altura ? `${bio.altura} cm` : 'No especificada' },
+    { label: 'Peso', value: bio.peso ? `${bio.peso} kg` : 'No especificado' },
+    { label: 'Medidas', value: bio.medidas || 'No especificadas' },
+    { label: 'Ojos', value: bio.ojos || 'No especificados' },
+    { label: 'Cabello', value: bio.pelo || 'No especificado' },
+    { label: 'Idiomas', value: bio.idiomas || 'No especificados' },
+    { label: 'Horario', value: bio.horario || 'No especificado' },
+  ].filter(c => c.value !== 'No especificada' && c.value !== 'No especificado' && c.value !== 'No especificadas' && c.value !== 'No especificados');
 
-  const userServices = profile?.services && profile.services.length > 0 
-    ? profile.services.map(s => ({ name: s, premium: false }))
-    : defaultServices;
+  const userServices = profile.services && profile.services.length > 0 
+    ? profile.services.map(s => ({ name: typeof s === 'string' ? s : s.name, premium: false }))
+    : [];
 
-  const albumPhotos = profile ? [
-    profile.image,
-    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=687',
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=720',
-    'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&q=80&w=687',
-    'https://images.unsplash.com/photo-1539109136881-3be06109e7c6?auto=format&fit=crop&q=80&w=687',
-  ].filter(img => img && img.length > 0) : [];
-
-  const displayPhotos = albumPhotos.length > 0 
-    ? albumPhotos 
-    : ['https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=687'];
+  // Solo usar fotos reales del perfil
+  const displayPhotos = profile.photos && profile.photos.length > 0 
+    ? profile.photos.map(p => typeof p === 'string' ? p : p.url).filter(url => url && url.length > 0)
+    : [];
 
   const content = (
     <div className="profile-detail-overlay">
@@ -146,11 +123,11 @@ const ProfileDetail = ({ profile, onClose }) => {
           <div className="detail-main-content">
             <header className="detail-header">
               <div className="detail-title-row">
-                <h1>{profile.name || 'Escort'} <ShieldCheck className="verified-icon" size={24} /></h1>
-                <div className="detail-price-badge">{formatPrice(profile?.price)}€+</div>
+                <h1>{profile.name || 'Perfil'} <ShieldCheck className="verified-icon" size={24} /></h1>
+                <div className="detail-price-badge">{formatPrice(profile?.price || bio.tarifa)}</div>
               </div>
               <div className="detail-location">
-                <MapPin size={16} /> {profile.location || 'Chile'}
+                <MapPin size={16} /> {profile.location || bio.location || 'Ubicación no especificada'}
               </div>
             </header>
 
@@ -159,7 +136,7 @@ const ProfileDetail = ({ profile, onClose }) => {
                 className={`tab-btn ${activeTab === 'photos' ? 'active' : ''}`}
                 onClick={() => setActiveTab('photos')}
               >
-                ÁLBUM
+                ÁLBUM {displayPhotos.length > 0 && `(${displayPhotos.length})`}
               </button>
               <button 
                 className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`}
@@ -171,38 +148,54 @@ const ProfileDetail = ({ profile, onClose }) => {
 
             <div className="tab-content-area">
               {activeTab === 'photos' ? (
-                <PhotoGallery photos={displayPhotos} />
+                displayPhotos.length > 0 ? (
+                  <PhotoGallery photos={displayPhotos} />
+                ) : (
+                  <div className="no-photos-message">
+                    <p>Este perfil aún no tiene fotos.</p>
+                  </div>
+                )
               ) : (
                 <div className="info-tab-pane">
-                  <div className="info-section">
-                    <h3><Star size={18} className="icon-gold" /> CARACTERÍSTICAS</h3>
-                    <div className="characteristics-grid">
-                      {characteristics.map((c, i) => (
-                        <div key={i} className="char-item">
-                          <span className="char-label">{c.label}</span>
-                          <span className="char-value">{c.value}</span>
-                        </div>
-                      ))}
+                  {characteristics.length > 0 && (
+                    <div className="info-section">
+                      <h3><Star size={18} className="icon-gold" /> CARACTERÍSTICAS</h3>
+                      <div className="characteristics-grid">
+                        {characteristics.map((c, i) => (
+                          <div key={i} className="char-item">
+                            <span className="char-label">{c.label}</span>
+                            <span className="char-value">{c.value}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="info-section">
-                    <h3><Info size={18} className="icon-gold" /> SOBRE MÍ</h3>
-                    <p className="profile-bio">
-                      {profile?.description || 'Soy una acompañante de lujo dedicada a ofrecer compañía elegante y sofisticada para eventos sociales, cenas, viajes y momentos exclusivos. Mi enfoque es la discreción, la elegancia y la creación de experiencias inolvidables a medida.'}
-                    </p>
-                  </div>
-
-                  <div className="info-section">
-                    <h3><ChevronRight size={18} className="icon-gold" /> SERVICIOS</h3>
-                    <div className="services-tags">
-                      {userServices.map((s, i) => (
-                        <span key={i} className={`service-tag ${s.premium ? 'premium' : ''}`}>
-                          {s.name}
-                        </span>
-                      ))}
+                  {bio.description && (
+                    <div className="info-section">
+                      <h3><Info size={18} className="icon-gold" /> SOBRE MÍ</h3>
+                      <p className="profile-bio">{bio.description}</p>
                     </div>
-                  </div>
+                  )}
+
+                  {userServices.length > 0 && (
+                    <div className="info-section">
+                      <h3><ChevronRight size={18} className="icon-gold" /> SERVICIOS</h3>
+                      <div className="services-tags">
+                        {userServices.map((s, i) => (
+                          <span key={i} className="service-tag">
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {characteristics.length === 0 && !bio.description && userServices.length === 0 && (
+                    <div className="empty-profile-info">
+                      <p>Este perfil aún no tiene información completa.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -223,21 +216,11 @@ const ProfileDetail = ({ profile, onClose }) => {
                   <Phone size={18} /> LLAMAR AHORA
                 </button>
               </div>
-              
-              <div className="sponsorship-section glass-effect">
-                <h3>Patrocinado por:</h3>
-                <div className="sponsors-logos">
-                  <img src="/assets/logo_r.png" alt="Rococo Privé" className="sponsor-logo" />
-                  <img src="https://via.placeholder.com/100x40?text=Lujo+Max" alt="Lujo Max" className="sponsor-logo" />
-                  <img src="https://via.placeholder.com/100x40?text=Elite+Travel" alt="Elite Travel" className="sponsor-logo" />
-                  <img src="https://via.placeholder.com/100x40?text=Premium+Events" alt="Premium Events" className="sponsor-logo" />
-                </div>
-              </div>
             </div>
 
             <div className="security-notice glass-effect">
               <ShieldCheck size={20} className="icon-gold" />
-              <p>Perfil 100% verificado por Rococo Privé.</p>
+              <p>Perfil verificado por Rococo Privé.</p>
             </div>
           </aside>
         </div>

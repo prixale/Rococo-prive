@@ -14,6 +14,7 @@ const Home = ({ onNavigate, userLocation }) => {
   const [activeStoryIndex, setActiveStoryIndex] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchFilters, setSearchFilters] = useState({ category: 'Todas', location: '' });
 
   useEffect(() => {
     loadProfiles();
@@ -33,20 +34,33 @@ const Home = ({ onNavigate, userLocation }) => {
     }
   };
 
-  const profilesNearYou = userLocation 
-    ? profiles.filter(p => 
-        p.location.toLowerCase().includes(userLocation.city?.toLowerCase()) ||
-        p.location.toLowerCase().includes(userLocation.country?.toLowerCase())
-      )
-    : [];
+  const handleFilterChange = (filters) => {
+    setSearchFilters(filters);
+  };
 
-  const displayProfiles = profilesNearYou.length > 0 ? profilesNearYou : profiles;
+  const filteredProfiles = profiles.filter(p => {
+    const matchesCategory = searchFilters.category === 'Todas' || p.category === searchFilters.category;
+    const matchesLocation = !searchFilters.location || 
+      (p.location && p.location.toLowerCase().includes(searchFilters.location.toLowerCase()));
+    return matchesCategory && matchesLocation;
+  });
+
+  const profilesNearYou = userLocation 
+    ? filteredProfiles.filter(p => 
+        p.location && (
+          p.location.toLowerCase().includes(userLocation.city?.toLowerCase()) ||
+          p.location.toLowerCase().includes(userLocation.country?.toLowerCase())
+        )
+      )
+    : filteredProfiles;
+
+  const displayProfiles = profilesNearYou.length > 0 ? profilesNearYou : filteredProfiles;
 
   return (
     <div className="home-page">
-      <Hero />
+      <Hero onNavigate={onNavigate} />
       
-      <SearchFilter />
+      <SearchFilter onFilterChange={handleFilterChange} />
       
       <section className="featured-profiles container">
         <div className="section-header-refined">
