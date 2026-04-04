@@ -3,12 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaUsers, FaGem, FaChartLine, FaMoneyBillWave, FaCog, FaCheckCircle, FaTimesCircle, FaSignOutAlt } from 'react-icons/fa';
 import './AdminDashboard.css';
 
+const MOCK_STATS = {
+  revenue: 0,
+  activeProfiles: 0,
+  newMemberships: 0,
+  pendingProfiles: 0
+};
+
+const INITIAL_COMMISSIONS = [];
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const AdminDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(MOCK_STATS);
   const [allProfiles, setAllProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  // New States for Interactive Editing
   const [commissions, setCommissions] = useState(INITIAL_COMMISSIONS);
   const [editingCommission, setEditingCommission] = useState(null);
   
@@ -20,36 +31,28 @@ const AdminDashboard = ({ onLogout }) => {
   });
 
   useEffect(() => {
-    // Load local storage profiles to simulate DB
-    const loadProfiles = () => {
-      const loaded = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('rococo_data_')) {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            try {
-              loaded.push(JSON.parse(raw));
-            } catch (e) { console.error(e); }
-          }
-        }
-      }
-      setAllProfiles(loaded);
-    };
-    loadProfiles();
-    
-    // Load commissions/settings if saved in localstorage
-    const savedCommissions = localStorage.getItem('rococo_commissions');
-    if(savedCommissions) {
-      try { setCommissions(JSON.parse(savedCommissions)); } catch (e) {}
-    }
-    
-    const savedSettings = localStorage.getItem('rococo_site_settings');
-    if(savedSettings) {
-      try { setSiteSettings(JSON.parse(savedSettings)); } catch (e) {}
-    }
-
+    loadAdminData();
   }, []);
+
+  const loadAdminData = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/profiles/public`);
+      const data = await res.json();
+      const profiles = data.profiles || [];
+      setAllProfiles(profiles);
+      
+      setStats({
+        revenue: 0,
+        activeProfiles: profiles.filter(p => p.is_public).length,
+        newMemberships: profiles.length,
+        pendingProfiles: profiles.filter(p => !p.is_public).length
+      });
+    } catch (err) {
+      console.error('Error loading admin data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Update localStorage helper
   const updateProfilesStorage = (profiles) => {

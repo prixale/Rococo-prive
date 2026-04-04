@@ -50,6 +50,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
 
     if (savedHash === inputHash) {
       localStorage.setItem(ADMIN_PASSWORD_KEY, 'true');
+      window.dispatchEvent(new Event('storage'));
       onLoginSuccess();
     } else {
       setError('Contraseña incorrecta. Intenta de nuevo.');
@@ -84,6 +85,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
     const hash = hashPassword(newPassword);
     localStorage.setItem(ADMIN_HASH_KEY, hash);
     localStorage.setItem(ADMIN_PASSWORD_KEY, 'true');
+    window.dispatchEvent(new Event('storage'));
 
     setLoading(false);
     onLoginSuccess();

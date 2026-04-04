@@ -53,11 +53,15 @@ function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Admin setup (still using localStorage directly for simple flag, but could move to storage)
     const adminAuth = localStorage.getItem('rococo_admin_password');
     if (adminAuth === 'true') {
       setIsAdminLoggedIn(true);
     }
+    
+    window.addEventListener('storage', () => {
+      const adminAuth = localStorage.getItem('rococo_admin_password');
+      setIsAdminLoggedIn(adminAuth === 'true');
+    });
   }, []);
 
   const handleAdminLoginSuccess = () => {
