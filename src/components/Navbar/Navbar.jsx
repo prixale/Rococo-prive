@@ -51,7 +51,6 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
@@ -66,7 +65,7 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
     checkAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = () => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
     
@@ -74,16 +73,13 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
       try {
         const userData = JSON.parse(user);
         setIsLoggedIn(true);
-        setIsAdmin(userData.role === 'admin');
         setUserName(userData.name || '');
       } catch (e) {
         setIsLoggedIn(false);
-        setIsAdmin(false);
         setUserName('');
       }
     } else {
       setIsLoggedIn(false);
-      setIsAdmin(false);
       setUserName('');
     }
   };
@@ -92,7 +88,6 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsLoggedIn(false);
-    setIsAdmin(false);
     setUserName('');
     onNavigate('home');
   };
@@ -149,6 +144,16 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
         </div>
 
         <div className="nav-actions desktop-only">
+          {/* Botón de Panel de Dueño - SIEMPRE VISIBLE */}
+          <motion.button 
+            className="btn-admin-refined" 
+            onClick={() => onNavigate('admin')}
+            whileHover={{ scale: 1.1, color: 'var(--color-gold)' }}
+            title="Panel de Dueño"
+          >
+            <Settings size={18} />
+          </motion.button>
+
           {isLoggedIn ? (
             <>
               <motion.button 
@@ -158,16 +163,6 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
               >
                 <User size={16} /> {userName}
               </motion.button>
-              {isAdmin && (
-                <motion.button 
-                  className="btn-admin-refined" 
-                  onClick={() => onNavigate('admin')}
-                  whileHover={{ scale: 1.1, color: 'var(--color-gold)' }}
-                  title="Panel de Dueño"
-                >
-                  <Settings size={18} />
-                </motion.button>
-              )}
               <motion.button 
                 className="btn-logout-refined"
                 onClick={handleLogout}
@@ -226,16 +221,15 @@ const Navbar = ({ onNavigate, userLocation, locationLoading }) => {
                 </motion.button>
               ))}
               <hr className="menu-divider" />
+              {/* Botón de Panel de Dueño - SIEMPRE VISIBLE en móvil */}
+              <button className="mobile-menu-item" onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} style={{ color: 'var(--color-gold)' }}>
+                <Settings size={16} style={{display: 'inline', marginRight: '8px'}}/> PANEL DUEÑO
+              </button>
               {isLoggedIn ? (
                 <>
                   <button className="mobile-menu-item" onClick={() => { onNavigate('dashboard'); setIsMenuOpen(false); }}>
                     <User size={16} style={{display: 'inline', marginRight: '8px'}}/> MI CUENTA ({userName})
                   </button>
-                  {isAdmin && (
-                    <button className="mobile-menu-item" onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} style={{ color: 'var(--color-gold)' }}>
-                      <Settings size={16} style={{display: 'inline', marginRight: '8px'}}/> PANEL DUEÑO
-                    </button>
-                  )}
                   <button className="mobile-menu-item" onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ color: 'var(--color-provocative)' }}>
                     CERRAR SESIÓN
                   </button>
