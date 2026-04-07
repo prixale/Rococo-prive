@@ -6,12 +6,6 @@ import './Membership.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-const MembershipPlans = {
-  free: { name: 'Gratis', photos: 10, videos: 0, price: 0 },
-  premium: { name: 'Premium', photos: 20, videos: 5, price: 19990 },
-  elite: { name: 'Élite', photos: 50, videos: 20, price: 29990 }
-};
-
 const Membership = ({ onNavigate }) => {
   const [loginMode, setLoginMode] = useState(false);
   const [registerMode, setRegisterMode] = useState(false);
@@ -26,8 +20,20 @@ const Membership = ({ onNavigate }) => {
   const [paymentError, setPaymentError] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [plans, setPlans] = useState([]);
 
   useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/plans`);
+        const data = await response.json();
+        if (data.plans) setPlans(data.plans);
+      } catch (err) {
+        console.error('Error fetching plans', err);
+      }
+    };
+    fetchPlans();
+
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
     if (token && user) {
@@ -218,7 +224,7 @@ const Membership = ({ onNavigate }) => {
     onNavigate('dashboard');
   };
 
-  const plan = MembershipPlans[selectedPlan];
+  const plan = plans.find(p => p.id === selectedPlan);
 
   return (
     <div className="membership-page container">
@@ -310,7 +316,7 @@ const Membership = ({ onNavigate }) => {
               <h2>REGISTRO Gratuito</h2>
               <p>Comienza sin costo con funciones básicas.</p>
               <ul>
-                <li><Check size={16} /> Hasta {MembershipPlans.free.photos} fotos en tu galería</li>
+                <li><Check size={16} /> Hasta 10 fotos en tu galería</li>
                 <li><Check size={16} /> Perfil básico visible</li>
                 <li><Check size={16} /> Publicidad básica</li>
               </ul>
@@ -318,35 +324,20 @@ const Membership = ({ onNavigate }) => {
               <p className="price-tag">GRATIS</p>
             </div>
 
-            <div className="option-card glass-effect highlighted">
-              <div className="popular-tag">RECOMENDADO</div>
-              <h2>MEMBRESÍA PREMIUM</h2>
-              <p>Más visibilidad y herramientas para crecer.</p>
-              <ul>
-                <li><Check size={16} /> Hasta {MembershipPlans.premium.photos} fotos en tu galería</li>
-                <li><Check size={16} /> Hasta {MembershipPlans.premium.videos} videos en tu perfil</li>
-                <li><Check size={16} /> Publicidad con prioridad en búsquedas</li>
-                <li><Check size={16} /> Mayor exposición en tu perfil</li>
-                <li><Check size={16} /> Acceso a eventos exclusivos</li>
-              </ul>
-              <button className="btn-join-filled" onClick={() => handleSelectPlan('premium')}>SUSCRIBIRSE</button>
-              <p className="price-tag">${MembershipPlans.premium.price.toLocaleString('es-CL')} CLP/mes</p>
-            </div>
-
-            <div className="option-card glass-effect">
-              <h2>MEMBRESÍA ÉLITE</h2>
-              <p>El nivel máximo para profesionales destacados.</p>
-              <ul>
-                <li><Check size={16} /> Hasta {MembershipPlans.elite.photos} fotos en tu galería</li>
-                <li><Check size={16} /> Hasta {MembershipPlans.elite.videos} videos en tu perfil</li>
-                <li><Check size={16} /> Publicidad máxima y posicionamiento #1</li>
-                <li><Check size={16} /> Acceso VIP a eventos y fiestas privadas</li>
-                <li><Check size={16} /> Historias ilimitadas permanentes</li>
-                <li><Check size={16} /> Soporte prioritario 24/7</li>
-              </ul>
-              <button className="btn-join-filled" onClick={() => handleSelectPlan('elite')}>SUSCRIBIRSE</button>
-              <p className="price-tag">${MembershipPlans.elite.price.toLocaleString('es-CL')} CLP/mes</p>
-            </div>
+            {plans.map(p => (
+              <div key={p.id} className="option-card glass-effect highlighted">
+                <div className="popular-tag">{p.duration_days} DÍAS</div>
+                <h2>MEMBRESÍA {p.name.toUpperCase()}</h2>
+                <p>Membresía premium por {p.duration_days} días.</p>
+                <ul>
+                  <li><Check size={16} /> Posicionamiento mejorado</li>
+                  <li><Check size={16} /> Contacto directo vía WhatsApp</li>
+                  <li><Check size={16} /> Prioridad en búsquedas</li>
+                </ul>
+                <button className="btn-join-filled" onClick={() => handleSelectPlan(p.id)}>SUSCRIBIRSE</button>
+                <p className="price-tag">${p.price.toLocaleString('es-CL')} CLP</p>
+              </div>
+            ))}
           </div>
 
           <div className="auth-toggle">

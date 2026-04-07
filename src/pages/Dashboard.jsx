@@ -220,21 +220,48 @@ const Dashboard = ({ onNavigate, userLocation }) => {
     }
   };
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
-    files.forEach(file => {
+    const token = localStorage.getItem('token');
+    
+    setSaving(true);
+    setError('');
+    
+    for (const file of files) {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setPhotos(prev => [...prev, { 
-            id: Date.now() + Math.random(), 
-            url: ev.target.result, 
-            name: file.name 
-          }]);
-        };
-        reader.readAsDataURL(file);
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+          const res = await fetch(`${API_URL}/api/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              setPhotos(prev => [...prev, {
+                id: Date.now() + Math.random(),
+                url: data.url,
+                name: file.name
+              }]);
+            } else {
+              setError('Error del servidor: ' + (data.error || 'Subida fallida'));
+            }
+          } else {
+            setError(`Error al subir ${file.name}`);
+          }
+        } catch (err) {
+          console.error('Error subiendo imagen', err);
+          setError('No se pudo subir la imagen ' + file.name);
+        }
       }
-    });
+    }
+    setSaving(false);
   };
 
   const deletePhoto = (id) => {

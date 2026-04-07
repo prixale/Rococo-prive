@@ -9,53 +9,7 @@ import './AdminDashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-const DEFAULT_MEMBERSHIP_PLANS = [
-  {
-    id: 'basic',
-    name: 'BÁSICO',
-    description: 'Acceso esencial por horas',
-    icon: '⚡',
-    color: '#10b981',
-    hourlyRate: 2000,
-    durations: [
-      { id: '1h', label: '1 Hora', hours: 1, price: 2000, active: true },
-      { id: '3h', label: '3 Horas', hours: 3, price: 5000, active: true },
-      { id: '6h', label: '6 Horas', hours: 6, price: 9000, active: true }
-    ],
-    benefits: ['Perfil visible', 'Chat básico', '1 foto destacada'],
-    active: true
-  },
-  {
-    id: 'premium',
-    name: 'PREMIUM',
-    description: 'Acceso completo por tiempo extendido',
-    icon: '💎',
-    color: '#8b5cf6',
-    hourlyRate: 3500,
-    durations: [
-      { id: '12h', label: '12 Horas', hours: 12, price: 35000, active: true },
-      { id: '24h', label: '24 Horas', hours: 24, price: 60000, active: true },
-      { id: '3d', label: '3 Días', hours: 72, price: 150000, active: true }
-    ],
-    benefits: ['Perfil verificado', 'Chat ilimitado', '10 fotos destacadas', 'Aparición en destacados', 'Estadísticas básicas'],
-    active: true
-  },
-  {
-    id: 'elite',
-    name: 'ÉLITE',
-    description: 'Máximo acceso y visibilidad',
-    icon: '👑',
-    color: '#f59e0b',
-    hourlyRate: 5000,
-    durations: [
-      { id: '1w', label: '1 Semana', hours: 168, price: 499990, active: true },
-      { id: '2w', label: '2 Semanas', hours: 336, price: 899990, active: true },
-      { id: '1m', label: '1 Mes', hours: 720, price: 1499990, active: true }
-    ],
-    benefits: ['Perfil VIP verificado', 'Chat ilimitado', 'Fotos ilimitadas', 'Posición #1 en búsquedas', 'Estadísticas avanzadas', 'Soporte prioritario', 'Badge exclusivo', 'Acceso a eventos VIP'],
-    active: true
-  }
-];
+const DEFAULT_MEMBERSHIP_PLANS = [];
 
 const MOCK_STATS = {
   revenue: 0,
@@ -71,12 +25,10 @@ const AdminDashboard = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [membershipPlans, setMembershipPlans] = useState(() => {
-    const saved = localStorage.getItem('rococo_membership_plans');
-    return saved ? JSON.parse(saved) : DEFAULT_MEMBERSHIP_PLANS;
-  });
+  const [membershipPlans, setMembershipPlans] = useState([]);
   
   const [editingPlan, setEditingPlan] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: '', duration_days: 0, price: 0 });
   const [newBenefit, setNewBenefit] = useState('');
   
   const [siteSettings, setSiteSettings] = useState(() => {
@@ -91,6 +43,7 @@ const AdminDashboard = ({ onLogout }) => {
 
   useEffect(() => {
     loadAdminData();
+    loadPlans();
     
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -98,6 +51,19 @@ const AdminDashboard = ({ onLogout }) => {
     
     return () => clearInterval(timer);
   }, []);
+
+  const loadPlans = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/admin/plans`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.plans) setMembershipPlans(data.plans);
+    } catch (err) {
+      console.error('Error loading plans', err);
+    }
+  };
 
   const loadAdminData = async () => {
     try {
@@ -119,96 +85,52 @@ const AdminDashboard = ({ onLogout }) => {
     }
   };
 
-  const saveMembershipPlans = (plans) => {
-    setMembershipPlans(plans);
-    localStorage.setItem('rococo_membership_plans', JSON.stringify(plans));
-  };
-
-  const handleAddPlan = () => {
-    const newPlan = {
-      id: `plan_${Date.now()}`,
-      name: 'NUEVO PLAN',
-      description: 'Descripción del plan',
-      icon: '⭐',
-      color: '#3b82f6',
-      hourlyRate: 0,
-      durations: [{ id: 'custom', label: 'Personalizado', hours: 0, price: 0, active: true }],
-      benefits: ['Beneficio básico'],
-      active: true
-    };
-    saveMembershipPlans([...membershipPlans, newPlan]);
-    setEditingPlan(newPlan.id);
-  };
-
-  const handleUpdatePlan = (planId, updates) => {
-    const updated = membershipPlans.map(p => p.id === planId ? { ...p, ...updates } : p);
-    saveMembershipPlans(updated);
-  };
-
-  const handleDeletePlan = (planId) => {
-    if (window.confirm('¿Eliminar este plan permanentemente?')) {
-      saveMembershipPlans(membershipPlans.filter(p => p.id !== planId));
-      if (editingPlan === planId) setEditingPlan(null);
+  const handleAddPlan = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/admin/plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: 'NUEVO PLAN', duration_days: 7, price: 10000 })
+      });
+      if (res.ok) loadPlans();
+    } catch (err) {
+      console.error('Error adding plan', err);
     }
   };
 
-  const handleAddDuration = (planId) => {
-    const updated = membershipPlans.map(p => {
-      if (p.id === planId) {
-        return {
-          ...p,
-          durations: [...p.durations, { id: `dur_${Date.now()}`, label: 'Nueva duración', hours: 0, price: 0, active: true }]
-        };
-      }
-      return p;
-    });
-    saveMembershipPlans(updated);
+  const handleUpdatePlan = async (planId, updates) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/admin/plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(updates)
+      });
+      loadPlans();
+      setEditingPlan(null);
+    } catch (err) {
+      console.error('Error updating plan', err);
+    }
   };
 
-  const handleUpdateDuration = (planId, durationId, updates) => {
-    const updated = membershipPlans.map(p => {
-      if (p.id === planId) {
-        return {
-          ...p,
-          durations: p.durations.map(d => d.id === durationId ? { ...d, ...updates } : d)
-        };
+  const handleDeletePlan = async (planId) => {
+    if (window.confirm('¿Eliminar este plan permanentemente?')) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/admin/plans/${planId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        loadPlans();
+        if (editingPlan === planId) setEditingPlan(null);
+      } catch (err) {
+        console.error('Error deleting plan', err);
       }
-      return p;
-    });
-    saveMembershipPlans(updated);
+    }
   };
 
-  const handleDeleteDuration = (planId, durationId) => {
-    const updated = membershipPlans.map(p => {
-      if (p.id === planId) {
-        return { ...p, durations: p.durations.filter(d => d.id !== durationId) };
-      }
-      return p;
-    });
-    saveMembershipPlans(updated);
-  };
 
-  const handleAddBenefit = (planId) => {
-    if (!newBenefit.trim()) return;
-    const updated = membershipPlans.map(p => {
-      if (p.id === planId) {
-        return { ...p, benefits: [...p.benefits, newBenefit.trim()] };
-      }
-      return p;
-    });
-    saveMembershipPlans(updated);
-    setNewBenefit('');
-  };
-
-  const handleDeleteBenefit = (planId, index) => {
-    const updated = membershipPlans.map(p => {
-      if (p.id === planId) {
-        return { ...p, benefits: p.benefits.filter((_, i) => i !== index) };
-      }
-      return p;
-    });
-    saveMembershipPlans(updated);
-  };
 
   const handleSaveSettings = (e) => {
     e.preventDefault();
@@ -287,13 +209,16 @@ const AdminDashboard = ({ onLogout }) => {
         {membershipPlans.map(plan => (
           <motion.div key={plan.id} className="membership-plan-card glass-effect" layout style={{ borderTop: `3px solid ${plan.color}` }}>
             <div className="plan-card-header">
-              <div className="plan-icon" style={{ background: `${plan.color}20`, color: plan.color }}>{plan.icon}</div>
+              <div className="plan-icon" style={{ background: `#10b98120`, color: '#10b981' }}>💎</div>
               <div className="plan-title">
-                <h3 style={{ color: plan.color }}>{plan.name}</h3>
-                <p>{plan.description}</p>
+                <h3 style={{ color: '#10b981' }}>{plan.name}</h3>
+                <p>{plan.duration_days} días - ${plan.price.toLocaleString('es-CL')} CLP</p>
               </div>
               <div className="plan-actions">
-                <button className="btn-icon" onClick={() => setEditingPlan(editingPlan === plan.id ? null : plan.id)}>
+                <button className="btn-icon" onClick={() => {
+                  setEditingPlan(editingPlan === plan.id ? null : plan.id);
+                  if (editingPlan !== plan.id) setEditFormData({ name: plan.name, duration_days: plan.duration_days, price: plan.price });
+                }}>
                   <FaEdit />
                 </button>
                 <button className="btn-icon danger" onClick={() => handleDeletePlan(plan.id)}>
@@ -302,85 +227,23 @@ const AdminDashboard = ({ onLogout }) => {
               </div>
             </div>
 
-            <div className="plan-status">
-              <label className="toggle-switch">
-                <input 
-                  type="checkbox" 
-                  checked={plan.active} 
-                  onChange={() => handleUpdatePlan(plan.id, { active: !plan.active })}
-                />
-                <span className="toggle-slider"></span>
-                <span className="toggle-label">{plan.active ? 'ACTIVO' : 'INACTIVO'}</span>
-              </label>
-              <div className="plan-hourly-rate">
-                <FaClock /> ${plan.hourlyRate.toLocaleString('es-CL')}/hora
-              </div>
-            </div>
-
             {editingPlan === plan.id && (
               <motion.div className="plan-edit-form" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                 <div className="form-group">
                   <label>Nombre del Plan</label>
-                  <input type="text" value={plan.name} onChange={(e) => handleUpdatePlan(plan.id, { name: e.target.value })} />
+                  <input type="text" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label>Descripción</label>
-                  <input type="text" value={plan.description} onChange={(e) => handleUpdatePlan(plan.id, { description: e.target.value })} />
+                  <label>Duración (Días)</label>
+                  <input type="number" value={editFormData.duration_days} onChange={(e) => setEditFormData({...editFormData, duration_days: parseInt(e.target.value) || 0})} />
                 </div>
                 <div className="form-group">
-                  <label>Ícono (emoji)</label>
-                  <input type="text" value={plan.icon} onChange={(e) => handleUpdatePlan(plan.id, { icon: e.target.value })} maxLength={2} />
+                  <label>Precio ($)</label>
+                  <input type="number" value={editFormData.price} onChange={(e) => setEditFormData({...editFormData, price: parseInt(e.target.value) || 0})} />
                 </div>
-                <div className="form-group">
-                  <label>Color del Plan</label>
-                  <input type="color" value={plan.color} onChange={(e) => handleUpdatePlan(plan.id, { color: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Tarifa Base por Hora ($)</label>
-                  <input type="number" value={plan.hourlyRate} onChange={(e) => handleUpdatePlan(plan.id, { hourlyRate: parseInt(e.target.value) || 0 })} />
-                </div>
-
-                <h4>⏱️ DURACIONES Y PRECIOS</h4>
-                <div className="durations-list">
-                  {plan.durations.map(duration => (
-                    <div key={duration.id} className="duration-item">
-                      <div className="duration-fields">
-                        <input type="text" value={duration.label} onChange={(e) => handleUpdateDuration(plan.id, duration.id, { label: e.target.value })} placeholder="Ej: 1 Hora" className="duration-label" />
-                        <input type="number" value={duration.hours} onChange={(e) => handleUpdateDuration(plan.id, duration.id, { hours: parseInt(e.target.value) || 0 })} placeholder="Horas" className="duration-hours" />
-                        <input type="number" value={duration.price} onChange={(e) => handleUpdateDuration(plan.id, duration.id, { price: parseInt(e.target.value) || 0 })} placeholder="Precio" className="duration-price" />
-                        <label className="toggle-switch small">
-                          <input type="checkbox" checked={duration.active} onChange={() => handleUpdateDuration(plan.id, duration.id, { active: !duration.active })} />
-                          <span className="toggle-slider"></span>
-                        </label>
-                      </div>
-                      <button className="btn-icon danger small" onClick={() => handleDeleteDuration(plan.id, duration.id)}>
-                        <FaTimesCircle />
-                      </button>
-                    </div>
-                  ))}
-                  <button className="btn-add-duration" onClick={() => handleAddDuration(plan.id)}>
-                    <FaPlus /> AÑADIR DURACIÓN
-                  </button>
-                </div>
-
-                <h4>✨ BENEFICIOS</h4>
-                <ul className="benefits-list">
-                  {plan.benefits.map((benefit, index) => (
-                    <li key={index} className="benefit-item">
-                      <FaCheckCircle className="benefit-check" style={{ color: plan.color }} />
-                      <span>{benefit}</span>
-                      <button className="btn-icon danger small" onClick={() => handleDeleteBenefit(plan.id, index)}>
-                        <FaTimesCircle />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="add-benefit-form">
-                  <input type="text" value={newBenefit} onChange={(e) => setNewBenefit(e.target.value)} placeholder="Nuevo beneficio..." onKeyPress={(e) => e.key === 'Enter' && handleAddBenefit(plan.id)} />
-                  <button className="btn-primary small" onClick={() => handleAddBenefit(plan.id)}>
-                    <FaPlus /> AÑADIR
-                  </button>
-                </div>
+                <button className="btn-primary small" onClick={() => handleUpdatePlan(plan.id, editFormData)}>
+                  <FaSave /> GUARDAR CAMBIOS
+                </button>
               </motion.div>
             )}
           </motion.div>

@@ -5,6 +5,9 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -29,9 +32,27 @@ const mpClient = new MercadoPagoConfig({
 
 console.log('🔑 Mercado Pago Token:', process.env.MERCADO_PAGO_ACCESS_TOKEN ? `Configurado (${process.env.MERCADO_PAGO_ACCESS_TOKEN.length} chars)` : '❌ NO CONFIGURADO');
 
+// Directorio de uploads
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+const storageEngine = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storageEngine });
+
 // Middleware
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Inicializar Base de Datos
 const initDB = async () => {
@@ -49,6 +70,24 @@ const initDB = async () => {
         otp_expires_at TIMESTAMP,
         subscription_plan VARCHAR(50) DEFAULT 'free',
         subscription_expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS plans (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        duration_days INT NOT NULL,
+        price INT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id),
+        plan_id INT REFERENCES plans(id),
+        start_date TIMESTAMP NOT NULL,
+        end_date TIMESTAMP NOT NULL,
+        status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT NOW()
       );
       
@@ -134,6 +173,39 @@ const authenticateAdmin = (req, res, next) => {
   });
 };
 
+// Middleware Control de Suscripción
+const checkSubscription = async (req, res, next) => {
+  authenticateToken(req, res, async () => {
+    try {
+      const userResult = await pool.query('SELECT subscription_expires_at, role FROM users WHERE id = $1', [req.user.id]);
+      if (userResult.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+      
+      const user = userResult.rows[0];
+      if (user.role === 'admin') return next(); // Admins bypass subscription check
+
+      if (!user.subscription_expires_at || new Date(user.subscription_expires_at) < new Date()) {
+        return res.status(403).json({ error: 'Suscripción inactiva o expirada' });
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: 'Error verificando suscripción' });
+    }
+  });
+};
+
+// ==========================================
+// RUTAS DE CARGA (UPLOADS)
+// ==========================================
+
+app.post('/api/upload', authenticateToken, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se subió archivo o formato incorrecto' });
+  }
+  const baseUrl = req.protocol + '://' + req.get('host');
+  const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+  res.json({ success: true, url: fileUrl });
+});
+
 // ==========================================
 // RUTAS DE AUTENTICACIÓN
 // ==========================================
@@ -159,10 +231,10 @@ app.post('/api/auth/register', async (req, res) => {
     // Crear perfil vacío
     await pool.query('INSERT INTO profiles (user_id) VALUES ($1)', [user.id]);
 
-    res.json({ token, user });
+    res.json({ success: true, token, user });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error en registro' });
+    res.status(500).json({ success: false, error: 'Error en registro' });
   }
 });
 
@@ -179,9 +251,10 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     
     delete user.password_hash;
-    res.json({ token, user });
+    res.json({ success: true, token, user });
   } catch (err) {
-    res.status(500).json({ error: 'Error en login' });
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Error en login' });
   }
 });
 
@@ -484,29 +557,58 @@ app.put('/api/admin/settings', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Membership plans del admin
-app.get('/api/admin/membership-plans', async (req, res) => {
+// Membresías (Público)
+app.get('/api/plans', async (req, res) => {
   try {
-    const result = await pool.query("SELECT value FROM admin_settings WHERE key = 'membership_plans'");
-    if (result.rows.length === 0) {
-      return res.json({ plans: [] });
-    }
-    res.json({ plans: result.rows[0].value });
+    const result = await pool.query('SELECT * FROM plans ORDER BY price ASC');
+    res.json({ plans: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Error obteniendo planes' });
   }
 });
 
-app.put('/api/admin/membership-plans', authenticateAdmin, async (req, res) => {
+// Admin Planes CRUD
+app.get('/api/admin/plans', authenticateAdmin, async (req, res) => {
   try {
-    const { plans } = req.body;
-    await pool.query(
-      "INSERT INTO admin_settings (key, value) VALUES ('membership_plans', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
-      [JSON.stringify(plans)]
+    const result = await pool.query('SELECT * FROM plans ORDER BY price ASC');
+    res.json({ plans: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Error obteniendo planes' });
+  }
+});
+
+app.post('/api/admin/plans', authenticateAdmin, async (req, res) => {
+  try {
+    const { name, duration_days, price } = req.body;
+    const result = await pool.query(
+      'INSERT INTO plans (name, duration_days, price) VALUES ($1, $2, $3) RETURNING *',
+      [name, parseInt(duration_days), parseInt(price)]
     );
+    res.json({ success: true, plan: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Error creando plan' });
+  }
+});
+
+app.put('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { name, duration_days, price } = req.body;
+    const result = await pool.query(
+      'UPDATE plans SET name = $1, duration_days = $2, price = $3 WHERE id = $4 RETURNING *',
+      [name, parseInt(duration_days), parseInt(price), req.params.id]
+    );
+    res.json({ success: true, plan: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Error actualizando plan' });
+  }
+});
+
+app.delete('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM plans WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error guardando planes' });
+    res.status(500).json({ error: 'Error eliminando plan' });
   }
 });
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { storage } from './utils/storage';
 import Navbar from './components/Navbar/Navbar';
 import Home from './pages/Home';
 import Discover from './pages/Discover';
@@ -91,11 +90,26 @@ function App() {
   };
 
   useEffect(() => {
-    // Using Storage Utility
-    const profiles = storage.getAllProfiles();
-    setAllProfiles(profiles);
+    const fetchProfiles = async () => {
+      try {
+        const url = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${url}/api/profiles/public`);
+        const data = await res.json();
+        if (data.profiles) {
+          setAllProfiles(data.profiles);
+        }
+      } catch (err) {
+        console.error('Error fetching profiles', err);
+      }
+    };
+    fetchProfiles();
 
-    const savedLocation = storage.getLocation();
+    // Recuperar location desde localStorage normal temporalmente (ya que no hay storage.js importado)
+    let savedLocation = null;
+    try {
+      savedLocation = JSON.parse(localStorage.getItem('rococo_user_location'));
+    } catch(e) {}
+
     if (savedLocation) {
       setUserLocation(savedLocation);
       setLocationLoading(false);
@@ -107,7 +121,7 @@ function App() {
           const { latitude, longitude } = position.coords;
           const locationData = await getLocationFromCoords(latitude, longitude);
           setUserLocation(locationData);
-          storage.saveLocation(locationData);
+          localStorage.setItem('rococo_user_location', JSON.stringify(locationData));
           setLocationLoading(false);
         },
         (error) => {
@@ -118,7 +132,7 @@ function App() {
             fullLocation: 'Santiago, Chile', lat: -33.4489, lon: -70.6693
           };
           setUserLocation(defaultLocation);
-          storage.saveLocation(defaultLocation);
+          localStorage.setItem('rococo_user_location', JSON.stringify(defaultLocation));
           setLocationLoading(false);
         },
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
@@ -129,20 +143,24 @@ function App() {
         fullLocation: 'Santiago, Chile', lat: -33.4489, lon: -70.6693
       };
       setUserLocation(defaultLocation);
-      storage.saveLocation(defaultLocation);
+      localStorage.setItem('rococo_user_location', JSON.stringify(defaultLocation));
       setLocationLoading(false);
     }
   }, []);
 
   const updateAllProfiles = (newProfiles) => {
     setAllProfiles(newProfiles);
-    // Storage utility takes care of this or we could add a saveAll method
-    localStorage.setItem('rococo_all_profiles', JSON.stringify(newProfiles));
   };
 
-  const handleProfilePublished = (profileData) => {
-    const newProfiles = storage.saveProfile(profileData);
-    setAllProfiles(newProfiles);
+  const handleProfilePublished = () => {
+    // Al publicar, recargar desde backend (opcional) o la propia pantalla lo asume
+    // En este caso, dejamos una recarga simple asíncrona:
+    try {
+      const url = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      fetch(`${url}/api/profiles/public`).then(res => res.json()).then(data => {
+        if(data.profiles) setAllProfiles(data.profiles);
+      });
+    } catch(e) {}
   };
 
   const renderPage = () => {
@@ -162,7 +180,7 @@ function App() {
               case 'discover': return <Discover onNavigate={setCurrentPage} allProfiles={allProfiles} userLocation={userLocation} />;
               case 'membership': return <Membership onNavigate={setCurrentPage} />;
               case 'dashboard': return <Dashboard onNavigate={setCurrentPage} onProfilePublished={handleProfilePublished} userLocation={userLocation} />;
-              case 'bookings': return <Bookings onNavigate={setCurrentPage} />;
+              case 'bookings': return <Bookings onNavigate={setCurrentPage} allProfiles={allProfiles} />;
               case 'admin': return isAdminLoggedIn ? <AdminDashboard onLogout={handleAdminLogout} /> : <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />;
               default: return <Home />;
             }

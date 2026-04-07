@@ -4,9 +4,9 @@ import './Bookings.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-const Bookings = ({ onNavigate }) => {
-  const [providers, setProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
+const Bookings = ({ onNavigate, allProfiles = [] }) => {
+  const [providers, setProviders] = useState(allProfiles);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -19,20 +19,8 @@ const Bookings = ({ onNavigate }) => {
   });
 
   useEffect(() => {
-    loadProviders();
-  }, []);
-
-  const loadProviders = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/profiles/public`);
-      const data = await res.json();
-      setProviders(data.profiles || []);
-    } catch (err) {
-      console.error('Error loading providers:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setProviders(allProfiles);
+  }, [allProfiles]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -202,13 +202,14 @@ button {
 .main-content {
   position: relative;
   min-height: 100vh;
+  padding-top: 80px; /* Account for fixed navbar height */
   padding-bottom: 80px; /* Padding for mobile nav */
   z-index: 1;
 }
 
 .page-wrapper {
   width: 100%;
-  min-height: 100vh;
+  min-height: calc(100vh - 80px);
 }
 
 /* Enhanced Ambiance */

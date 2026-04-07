@@ -5,36 +5,14 @@ import ProfileCard from '../components/ProfileCard/ProfileCard';
 import ProfileDetail from '../components/ProfileDetail/ProfileDetail';
 import './Discover.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-const Discover = ({ onNavigate, userLocation }) => {
-  const [profiles, setProfiles] = useState([]);
-  const [loading, setLoading] = useState(true);
+const Discover = ({ onNavigate, userLocation, allProfiles = [] }) => {
   const [filter, setFilter] = useState('Todas');
   const [maxPrice, setMaxPrice] = useState(100000);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [nearbyFilter, setNearbyFilter] = useState(false);
 
-  useEffect(() => {
-    loadProfiles();
-  }, []);
-
-  const loadProfiles = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/profiles/public`);
-      const data = await res.json();
-      setProfiles(data.profiles || []);
-    } catch (err) {
-      console.error('Error loading profiles:', err);
-      setProfiles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredProfiles = profiles.filter(p => {
+  const filteredProfiles = allProfiles.filter(p => {
     const matchesFilter = filter === 'Todas' || p.category === filter;
     const matchesPrice = p.price <= maxPrice;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
