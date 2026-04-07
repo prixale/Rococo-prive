@@ -22,6 +22,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.ap
 // Base de Datos
 const isRailwayInternal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('.railway.internal');
 
+console.log('🔍 DB URL Configurada:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '❌ NINGUNA (Vacío o undefined)');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: false } })
