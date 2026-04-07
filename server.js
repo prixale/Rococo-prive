@@ -26,7 +26,7 @@ console.log('🔍 DB URL Configurada:', process.env.DATABASE_URL ? process.env.D
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: false } })
+  ssl: false
 });
 
 // Mercado Pago
