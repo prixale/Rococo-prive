@@ -20,9 +20,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rococo_prive_secret_key_change_in_
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.app';
 
 // Base de Datos
+const isRailwayInternal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('.railway.internal');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: false } })
 });
 
 // Mercado Pago
