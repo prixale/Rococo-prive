@@ -26,7 +26,12 @@ console.log('🔍 DB URL Configurada:', process.env.DATABASE_URL ? process.env.D
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: false
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway') 
+    ? { rejectUnauthorized: false } 
+    : false,
+  connectionTimeoutMillis: 10000, // 10 seconds to connect before timing out
+  idleTimeoutMillis: 30000,     // 30 seconds before closing idle connections
+  max: 10                       // Max 10 connections in the pool
 });
 
 // Mercado Pago
