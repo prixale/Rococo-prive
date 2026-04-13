@@ -97,7 +97,7 @@ const Discover = ({ onNavigate, userLocation, allProfiles = [] }) => {
         </aside>
 
         <div className="discover-grid-area">
-          {loading ? (
+          {allProfiles.length === 0 ? (
             <div className="loading-state">
               <p>Cargando perfiles...</p>
             </div>

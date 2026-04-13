@@ -39,7 +39,7 @@ const Home = ({ onNavigate, userLocation, allProfiles = [] }) => {
           <h2>DESCUBRE LA EXCLUSIVIDAD</h2>
         </div>
 
-        {loading ? (
+        {allProfiles.length === 0 ? (
           <div className="loading-state">
             <p>Cargando perfiles...</p>
           </div>
@@ -63,7 +63,7 @@ const Home = ({ onNavigate, userLocation, allProfiles = [] }) => {
           </div>
         )}
         
-        {!loading && profiles.length > 12 && (
+        {allProfiles.length > 12 && (
           <div className="view-more-container">
             <button className="btn-view-more" onClick={() => onNavigate('discover')}>VER TODAS</button>
           </div>
