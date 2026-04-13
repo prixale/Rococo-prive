@@ -20,12 +20,12 @@ const PORT = process.env.PORT === '5432' ? 3001 : (process.env.PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET || 'rococo_prive_secret_key_change_in_production';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.app';
 
-// Base de Datos - Usar URL pública si la interna no está disponible
+// Base de Datos - Priorizar URL pública (más estable) sobre la interna
 const DATABASE_URL = process.env.DATABASE_URL;
 const DATABASE_PUBLIC_URL = process.env.DATABASE_PUBLIC_URL;
 
-// Preferir URL pública si existe, como fallback robusto
-const ACTIVE_DB_URL = DATABASE_URL || DATABASE_PUBLIC_URL;
+// Prioridad: URL pública primero (evita problemas de red interna de Railway)
+const ACTIVE_DB_URL = DATABASE_PUBLIC_URL || DATABASE_URL;
 const isInternalRailway = ACTIVE_DB_URL && ACTIVE_DB_URL.includes('.railway.internal');
 
 console.log('🔍 DB URL (interna):', DATABASE_URL ? DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '❌ No configurada');
@@ -34,17 +34,16 @@ console.log('✅ Usando URL:', ACTIVE_DB_URL ? ACTIVE_DB_URL.replace(/:[^:@]+@/,
 
 if (!ACTIVE_DB_URL) {
   console.error('🚨 CRÍTICO: Ni DATABASE_URL ni DATABASE_PUBLIC_URL están configuradas.');
-  console.error('   Railway → tu servicio → Variables → agrega DATABASE_PUBLIC_URL desde la DB de PostgreSQL');
 }
 
 const pool = new Pool({
   connectionString: ACTIVE_DB_URL,
-  // SSL: desactivado para red interna de Railway, activado para conexiones externas
   ssl: isInternalRailway ? false : { rejectUnauthorized: false },
   connectionTimeoutMillis: 15000,
   idleTimeoutMillis: 30000,
   max: 10
 });
+
 
 
 // Mercado Pago
