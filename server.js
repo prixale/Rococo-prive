@@ -15,23 +15,26 @@ const { Pool } = pg;
 const app = express();
 
 // Configuración
-const PORT = process.env.PORT || 3001;
+// IMPORTANT: Ensure PORT is not 5432 (PostgreSQL port) to avoid conflicts
+const PORT = process.env.PORT === '5432' ? 3001 : (process.env.PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET || 'rococo_prive_secret_key_change_in_production';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.app';
 
-// Base de Datos
-const isRailwayInternal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('.railway.internal');
+// Base de Datos - Validación estricta
+const DATABASE_URL = process.env.DATABASE_URL;
+console.log('🔍 DB URL Configurada:', DATABASE_URL ? DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '❌ NINGUNA (Vacío o undefined)');
 
-console.log('🔍 DB URL Configurada:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '❌ NINGUNA (Vacío o undefined)');
+if (!DATABASE_URL) {
+  console.error('🚨 CRÍTICO: DATABASE_URL no está configurada. El servidor no puede conectar a la base de datos.');
+  console.error('   Por favor configura la variable DATABASE_URL en Railway → Settings → Variables');
+}
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway') 
-    ? { rejectUnauthorized: false } 
-    : false,
-  connectionTimeoutMillis: 10000, // 10 seconds to connect before timing out
-  idleTimeoutMillis: 30000,     // 30 seconds before closing idle connections
-  max: 10                       // Max 10 connections in the pool
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Siempre usar SSL seguro en producción
+  connectionTimeoutMillis: 15000, // 15 segundos para conectar
+  idleTimeoutMillis: 30000,       // 30 segundos antes de cerrar conexiones idle
+  max: 10                         // Máximo 10 conexiones en el pool
 });
 
 // Mercado Pago
@@ -63,10 +66,17 @@ app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// Inicializar Base de Datos
-const initDB = async () => {
-  try {
-    await pool.query(`
+// Inicializar Base de Datos con lógica de reintento
+const initDB = async (retries = 5, delay = 3000) => {
+  if (!DATABASE_URL) {
+    console.error('⏭️ InitDB omitido: DATABASE_URL no definida.');
+    return;
+  }
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Intento ${attempt}/${retries} de conexión a la base de datos...`);
+      await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -159,9 +169,18 @@ const initDB = async () => {
       INSERT INTO plans (name, duration_days, price) 
       SELECT 'Elite', 30, 80000 WHERE NOT EXISTS (SELECT 1 FROM plans WHERE name = 'Elite');
     `);
-    console.log('✅ Base de datos inicializada correctamente');
-  } catch (err) {
-    console.error('❌ Error inicializando DB:', err);
+      console.log('✅ Base de datos inicializada correctamente');
+      return; // Conexión exitosa, salir del loop
+    } catch (err) {
+      console.error(`❌ Error en intento ${attempt}/${retries}:`, err.message);
+      if (attempt < retries) {
+        console.log(`⏳ Reintentando en ${delay / 1000} segundos...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        console.error('💥 No se pudo conectar a la base de datos después de todos los intentos.');
+        console.error('   Verifica que DATABASE_URL y las variables de Railway estén correctamente configuradas.');
+      }
+    }
   }
 };
 
