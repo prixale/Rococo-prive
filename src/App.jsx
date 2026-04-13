@@ -81,8 +81,8 @@ function App() {
   const smoothX = useSpring(mouseX, springConfig);
   const smoothY = useSpring(mouseY, springConfig);
 
-  const xOffset = useTransform(smoothX, [0, typeof window !== 'undefined' ? window.innerWidth : 1920], [-15, 15]);
-  const yOffset = useTransform(smoothY, [0, typeof window !== 'undefined' ? window.innerHeight : 1080], [-15, 15]);
+  const xOffset = useTransform(smoothX, [0, typeof window !== 'undefined' ? window.innerWidth : 1920], [-30, 30]);
+  const yOffset = useTransform(smoothY, [0, typeof window !== 'undefined' ? window.innerHeight : 1080], [-30, 30]);
 
   const handleMouseMove = (e) => {
     mouseX.set(e.clientX);
@@ -181,9 +181,9 @@ function App() {
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPage}
-          initial={{ opacity: 0, y: 10, filter: 'blur(10px)' }}
+          initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -10, filter: 'blur(10px)' }}
+          exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="page-wrapper"
         >
