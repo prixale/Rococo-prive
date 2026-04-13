@@ -145,6 +145,14 @@ const initDB = async () => {
           {"id":"elite","name":"ÉLITE","description":"Máximo acceso y visibilidad","icon":"👑","color":"#f59e0b","hourlyRate":5000,"durations":[{"id":"1w","label":"1 Semana","hours":168,"price":499990,"active":true},{"id":"2w","label":"2 Semanas","hours":336,"price":899990,"active":true},{"id":"1m","label":"1 Mes","hours":720,"price":1499990,"active":true}],"benefits":["Perfil VIP verificado","Chat ilimitado","Fotos ilimitadas","Posición #1 en búsquedas","Estadísticas avanzadas","Soporte prioritario","Badge exclusivo","Acceso a eventos VIP"],"active":true}
         ]'::jsonb)
       ON CONFLICT (key) DO NOTHING;
+
+      -- También poblar la tabla 'plans' si está vacía
+      INSERT INTO plans (name, duration_days, price) 
+      SELECT 'Básico', 1, 5000 WHERE NOT EXISTS (SELECT 1 FROM plans LIMIT 1);
+      INSERT INTO plans (name, duration_days, price) 
+      SELECT 'Premium', 7, 25000 WHERE NOT EXISTS (SELECT 1 FROM plans WHERE name = 'Premium');
+      INSERT INTO plans (name, duration_days, price) 
+      SELECT 'Elite', 30, 80000 WHERE NOT EXISTS (SELECT 1 FROM plans WHERE name = 'Elite');
     `);
     console.log('✅ Base de datos inicializada correctamente');
   } catch (err) {
@@ -297,8 +305,8 @@ app.get('/api/profiles/public', async (req, res) => {
     
     res.json({ profiles });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error obteniendo perfiles' });
+    console.error('❌ ERROR en /api/profiles/public:', err);
+    res.status(500).json({ error: 'Error obteniendo perfiles', message: err.message });
   }
 });
 
@@ -567,7 +575,8 @@ app.get('/api/plans', async (req, res) => {
     const result = await pool.query('SELECT * FROM plans ORDER BY price ASC');
     res.json({ plans: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Error obteniendo planes' });
+    console.error('❌ ERROR en /api/plans:', err);
+    res.status(500).json({ error: 'Error obteniendo planes', message: err.message });
   }
 });
 

@@ -90,16 +90,29 @@ function App() {
   };
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage]);
+
+  useEffect(() => {
     const fetchProfiles = async () => {
       try {
         const url = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${url}/api/profiles/public`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const res = await fetch(`${url}/api/profiles/public`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error('Servidor respondió con error');
+        
         const data = await res.json();
         if (data.profiles) {
           setAllProfiles(data.profiles);
         }
       } catch (err) {
-        console.error('Error fetching profiles', err);
+        console.error('⚠️ Error al cargar perfiles:', err.message);
+        // Si hay error, al menos permitimos que el estado de carga termine con un array vacío
+        setAllProfiles([]);
       }
     };
     fetchProfiles();
