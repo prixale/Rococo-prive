@@ -29,9 +29,12 @@ if (!DATABASE_URL) {
   console.error('   Por favor configura la variable DATABASE_URL en Railway → Settings → Variables');
 }
 
+const isInternalRailway = DATABASE_URL && DATABASE_URL.includes('.railway.internal');
+
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Siempre usar SSL seguro en producción
+  // Las conexiones internas de Railway NO usan SSL. Las externas sí.
+  ssl: isInternalRailway ? false : { rejectUnauthorized: false },
   connectionTimeoutMillis: 15000, // 15 segundos para conectar
   idleTimeoutMillis: 30000,       // 30 segundos antes de cerrar conexiones idle
   max: 10                         // Máximo 10 conexiones en el pool
