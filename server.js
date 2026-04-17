@@ -39,16 +39,25 @@ if (!ACTIVE_DB_URL) {
 const pool = new Pool({
   connectionString: ACTIVE_DB_URL,
   ssl: isInternalRailway ? false : { rejectUnauthorized: false },
-  connectionTimeoutMillis: 30000,  // 30s — Railway containers can be slow to handshake
-  idleTimeoutMillis: 600000,       // 10 min — keep connections alive longer behind Railway proxy
-  max: 5,                          // Lower ceiling to avoid overwhelming free-tier DB
+  connectionTimeoutMillis: 60000,  // 60s — extra headroom for Railway's slower internal handshakes
+  idleTimeoutMillis: 900000,       // 15 min — keep connections alive longer behind Railway proxy
+  max: 10,                         // Allow more concurrent connections for higher traffic
   keepAlive: true,                 // Send TCP keepalive packets so the OS doesn't silently drop idle connections
   keepAliveInitialDelayMillis: 10000
 });
 
-// Catch pool-level errors (e.g. unexpected termination) so they don't crash the process
-pool.on('error', (err) => {
+// Pool event listeners for visibility into connection lifecycle
+pool.on('error', (err, client) => {
   console.error('⚠️ pg pool error (idle client):', err.message);
+  console.error('   Stack:', err.stack);
+});
+
+pool.on('connect', (client) => {
+  console.log(`🔌 New DB connection established (pool size: ${pool.totalCount})`);
+});
+
+pool.on('remove', (client) => {
+  console.log(`🔌 DB connection removed from pool (pool size: ${pool.totalCount})`);
 });
 
 
