@@ -1,24 +1,12 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import pg from 'pg';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
-import multer from 'multer';
-import fs from 'fs';
 import path from 'path';
+import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
+import crypto from 'crypto';
 
 dotenv.config();
 
 const { Pool } = pg;
 const app = express();
-
-// Configuración
-// IMPORTANT: Ensure PORT is not 5432 (PostgreSQL port) to avoid conflicts
-const PORT = process.env.PORT === '5432' ? 3001 : (process.env.PORT || 3001);
-const JWT_SECRET = process.env.JWT_SECRET || 'rococo_prive_secret_key_change_in_production';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.app';
 
 // ── Diagnóstico de entorno ────────────────────────────────────────────────────
 // Imprime todas las variables de entorno relevantes (enmascaradas) para que
@@ -55,6 +43,21 @@ DB_KEYS.forEach(key => {
 
 console.log('══════════════════════════════════════════════════════');
 console.log('');
+
+// Configuración de Google
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// Configuración de Email (SMTP)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true', // true para 465, false para otros
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 // ── Base de Datos ─────────────────────────────────────────────────────────────
 // Priorizar URL pública (más estable) sobre la interna
@@ -250,6 +253,23 @@ const initDB = async (retries = 5, delay = 3000) => {
       SELECT 'Premium', 7, 25000 WHERE NOT EXISTS (SELECT 1 FROM plans WHERE name = 'Premium');
       INSERT INTO plans (name, duration_days, price) 
       SELECT 'Elite', 30, 80000 WHERE NOT EXISTS (SELECT 1 FROM plans WHERE name = 'Elite');
+
+      -- MIGRACIONES: Añadir columnas necesarias si no existen
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='google_id') THEN
+          ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='avatar_url') THEN
+          ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='reset_token') THEN
+          ALTER TABLE users ADD COLUMN reset_token VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='reset_token_expires') THEN
+          ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMP;
+        END IF;
+      END $$;
     `);
       console.log('✅ Base de datos inicializada correctamente');
       return; // Conexión exitosa, salir del loop
@@ -373,6 +393,135 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'Error en login' });
+  }
+});
+
+// LOGIN CON GOOGLE
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Falta credencial de Google' });
+
+    // Verificar token con Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture: avatarUrl } = payload;
+
+    // Buscar si el usuario ya existe
+    let userResult = await pool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [googleId, email]);
+    let user;
+
+    if (userResult.rows.length === 0) {
+      // Crear nuevo usuario
+      const newUser = await pool.query(
+        'INSERT INTO users (email, name, google_id, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
+        [email, name, googleId, avatarUrl]
+      );
+      user = newUser.rows[0];
+      // Crear perfil asociado
+      await pool.query('INSERT INTO profiles (user_id) VALUES ($1)', [user.id]);
+    } else {
+      user = userResult.rows[0];
+      // Vincular google_id si no lo tenía
+      if (!user.google_id) {
+        await pool.query('UPDATE users SET google_id = $1, avatar_url = $2 WHERE id = $3', [googleId, avatarUrl, user.id]);
+        user.google_id = googleId;
+        user.avatar_url = avatarUrl;
+      }
+    }
+
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    delete user.password_hash;
+    
+    res.json({ success: true, token, user });
+  } catch (err) {
+    console.error('❌ Error Google Auth:', err);
+    res.status(500).json({ error: 'Error en autenticación con Google' });
+  }
+});
+
+// OLVIDÉ MI CONTRASEÑA - SOLICITUD
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+    const userResult = await pool.query('SELECT id, name FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      // Por seguridad no revelamos si el email existe o no
+      return res.json({ success: true, message: 'Si el email está registrado, recibirás instrucciones.' });
+    }
+
+    const user = userResult.rows[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000); // 1 hora
+
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [token, expires, user.id]
+    );
+
+    const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
+
+    // Enviar Email
+    const mailOptions = {
+      from: `"Rococo Privé" <${process.env.EMAIL_FROM || 'noreply@rococoprive.com'}>`,
+      to: email,
+      subject: 'Recupera tu contraseña - Rococo Privé',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <h2 style="color: #b48c36; text-align: center;">Rococo Privé</h2>
+          <p>Hola <strong>${user.name}</strong>,</p>
+          <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente botón para continuar:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #b48c36; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Restablecer Contraseña</a>
+          </div>
+          <p>Este enlace expirará en 1 hora.</p>
+          <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #888; text-align: center;">Este es un mensaje automático, por favor no respondas.</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true, message: 'Email enviado con instrucciones.' });
+  } catch (err) {
+    console.error('❌ Error Forgot Password:', err);
+    res.status(500).json({ error: 'Error procesando solicitud de recuperación' });
+  }
+});
+
+// RESTABLECER CONTRASEÑA - ACCIÓN
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token y nueva contraseña requeridos' });
+
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [token]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+
+    const userId = userResult.rows[0].id;
+    const password_hash = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [password_hash, userId]
+    );
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente.' });
+  } catch (err) {
+    console.error('❌ Error Reset Password:', err);
+    res.status(500).json({ error: 'Error al restablecer la contraseña' });
   }
 });
 
