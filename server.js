@@ -20,7 +20,44 @@ const PORT = process.env.PORT === '5432' ? 3001 : (process.env.PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET || 'rococo_prive_secret_key_change_in_production';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rococo-prive.vercel.app';
 
-// Base de Datos - Priorizar URL pública (más estable) sobre la interna
+// ── Diagnóstico de entorno ────────────────────────────────────────────────────
+// Imprime todas las variables de entorno relevantes (enmascaradas) para que
+// podamos verificar qué está llegando realmente al contenedor en Railway.
+console.log('');
+console.log('══════════════════════════════════════════════════════');
+console.log('🔎 DIAGNÓSTICO DE VARIABLES DE ENTORNO');
+console.log('══════════════════════════════════════════════════════');
+
+const SENSITIVE_KEYS = ['DATABASE_URL', 'DATABASE_PUBLIC_URL', 'JWT_SECRET', 'MERCADO_PAGO_ACCESS_TOKEN'];
+const DB_KEYS        = ['DATABASE_URL', 'DATABASE_PUBLIC_URL', 'PGHOST', 'PGPORT', 'PGDATABASE', 'PGUSER', 'PGPASSWORD'];
+
+// Show every env var: mask the value of sensitive ones, show the rest as-is
+Object.keys(process.env).sort().forEach(key => {
+  const val = process.env[key];
+  if (!val) return; // skip empty
+  if (SENSITIVE_KEYS.includes(key)) {
+    // For connection strings mask the password segment; for short secrets show length only
+    const masked = val.includes('@')
+      ? val.replace(/:[^:@]+@/, ':***@')
+      : `[SET – ${val.length} chars]`;
+    console.log(`  ✅ ${key} = ${masked}`);
+  } else {
+    console.log(`  📌 ${key} = ${val}`);
+  }
+});
+
+// Explicitly call out any DB-related keys that are MISSING
+DB_KEYS.forEach(key => {
+  if (!process.env[key]) {
+    console.log(`  ❌ ${key} = (not set)`);
+  }
+});
+
+console.log('══════════════════════════════════════════════════════');
+console.log('');
+
+// ── Base de Datos ─────────────────────────────────────────────────────────────
+// Priorizar URL pública (más estable) sobre la interna
 const DATABASE_URL = process.env.DATABASE_URL;
 const DATABASE_PUBLIC_URL = process.env.DATABASE_PUBLIC_URL;
 
@@ -31,9 +68,29 @@ const isInternalRailway = ACTIVE_DB_URL && ACTIVE_DB_URL.includes('.railway.inte
 console.log('🔍 DB URL (interna):', DATABASE_URL ? DATABASE_URL.replace(/:[^:@]+@/, ':***@') : '❌ No configurada');
 console.log('🌐 DB URL (pública):', DATABASE_PUBLIC_URL ? DATABASE_PUBLIC_URL.replace(/:[^:@]+@/, ':***@') : '❌ No configurada');
 console.log('✅ Usando URL:', ACTIVE_DB_URL ? ACTIVE_DB_URL.replace(/:[^:@]+@/, ':***@') : '❌ NINGUNA');
+console.log('');
 
 if (!ACTIVE_DB_URL) {
-  console.error('🚨 CRÍTICO: Ni DATABASE_URL ni DATABASE_PUBLIC_URL están configuradas.');
+  console.error('');
+  console.error('╔══════════════════════════════════════════════════════╗');
+  console.error('║  🚨  ERROR CRÍTICO DE CONFIGURACIÓN                  ║');
+  console.error('╠══════════════════════════════════════════════════════╣');
+  console.error('║  Ni DATABASE_URL ni DATABASE_PUBLIC_URL están        ║');
+  console.error('║  definidas. El servidor no puede arrancar sin una    ║');
+  console.error('║  conexión a PostgreSQL.                              ║');
+  console.error('║                                                      ║');
+  console.error('║  Pasos para corregirlo en Railway:                   ║');
+  console.error('║  1. Abre el servicio Postgres-gPDA en el dashboard.  ║');
+  console.error('║  2. Ve a "Connect" → copia DATABASE_URL o            ║');
+  console.error('║     DATABASE_PUBLIC_URL.                             ║');
+  console.error('║  3. En el servicio Rococo-prive → Variables,         ║');
+  console.error('║     añade la variable con el valor copiado.          ║');
+  console.error('║  4. Si usas referencias (${{...}}), verifica que el  ║');
+  console.error('║     nombre del servicio coincide exactamente.        ║');
+  console.error('╚══════════════════════════════════════════════════════╝');
+  console.error('');
+  // Fail fast: exit so Railway marks the deploy as failed and shows the logs
+  process.exit(1);
 }
 
 const pool = new Pool({
@@ -209,7 +266,7 @@ const initDB = async (retries = 5, delay = 3000) => {
   }
 };
 
-initDB();
+// initDB() is now called inside the startup sequence below.
 
 // Middleware de Autenticación
 const authenticateToken = (req, res, next) => {
@@ -720,11 +777,48 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mode: 'production', db: 'connected' });
 });
 
-app.listen(PORT, () => {
-  console.log('═══════════════════════════════════════════');
-  console.log('🎭 ROCOCO PRIVÉ - SERVIDOR DE PAGOS');
-  console.log('═══════════════════════════════════════════');
-  console.log(`📡 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🔗 Frontend: ${FRONTEND_URL}`);
-  console.log('═══════════════════════════════════════════');
-});
+// ── Startup sequence ──────────────────────────────────────────────────────────
+// Validate the DB connection BEFORE accepting traffic so Railway marks the
+// deploy as failed (and surfaces the logs) when the database is unreachable.
+(async () => {
+  // 1. Verify we can actually reach PostgreSQL
+  console.log('🔄 Verificando conexión a la base de datos antes de arrancar...');
+  try {
+    const client = await pool.connect();
+    const { rows } = await client.query('SELECT NOW() AS now, current_database() AS db');
+    client.release();
+    console.log(`✅ Conexión a PostgreSQL exitosa — base de datos: "${rows[0].db}", hora del servidor: ${rows[0].now}`);
+  } catch (err) {
+    console.error('');
+    console.error('╔══════════════════════════════════════════════════════╗');
+    console.error('║  🚨  FALLO DE CONEXIÓN A POSTGRESQL                  ║');
+    console.error('╠══════════════════════════════════════════════════════╣');
+    console.error(`║  Error: ${err.message.substring(0, 44).padEnd(44)} ║`);
+    console.error('║                                                      ║');
+    console.error('║  URL activa (enmascarada):                           ║');
+    console.error(`║  ${ACTIVE_DB_URL.replace(/:[^:@]+@/, ':***@').substring(0, 50).padEnd(50)} ║`);
+    console.error('║                                                      ║');
+    console.error('║  Posibles causas:                                    ║');
+    console.error('║  • La referencia ${{...}} no se resolvió (valor      ║');
+    console.error('║    literal en lugar de la URL real).                 ║');
+    console.error('║  • El servicio Postgres-gPDA aún no está listo.      ║');
+    console.error('║  • Credenciales o host incorrectos.                  ║');
+    console.error('╚══════════════════════════════════════════════════════╝');
+    console.error('');
+    process.exit(1);
+  }
+
+  // 2. Run schema migrations / seed data
+  await initDB();
+
+  // 3. Start accepting HTTP traffic only after DB is confirmed healthy
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('═══════════════════════════════════════════');
+    console.log('🎭 ROCOCO PRIVÉ - SERVIDOR DE PAGOS');
+    console.log('═══════════════════════════════════════════');
+    console.log(`📡 Servidor corriendo en puerto ${PORT}`);
+    console.log(`🔗 Frontend: ${FRONTEND_URL}`);
+    console.log('═══════════════════════════════════════════');
+  });
+})();
