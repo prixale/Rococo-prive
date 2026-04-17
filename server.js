@@ -39,9 +39,16 @@ if (!ACTIVE_DB_URL) {
 const pool = new Pool({
   connectionString: ACTIVE_DB_URL,
   ssl: isInternalRailway ? false : { rejectUnauthorized: false },
-  connectionTimeoutMillis: 15000,
-  idleTimeoutMillis: 30000,
-  max: 10
+  connectionTimeoutMillis: 30000,  // 30s — Railway containers can be slow to handshake
+  idleTimeoutMillis: 600000,       // 10 min — keep connections alive longer behind Railway proxy
+  max: 5,                          // Lower ceiling to avoid overwhelming free-tier DB
+  keepAlive: true,                 // Send TCP keepalive packets so the OS doesn't silently drop idle connections
+  keepAliveInitialDelayMillis: 10000
+});
+
+// Catch pool-level errors (e.g. unexpected termination) so they don't crash the process
+pool.on('error', (err) => {
+  console.error('⚠️ pg pool error (idle client):', err.message);
 });
 
 
@@ -77,8 +84,8 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Inicializar Base de Datos con lógica de reintento
 const initDB = async (retries = 5, delay = 3000) => {
-  if (!DATABASE_URL) {
-    console.error('⏭️ InitDB omitido: DATABASE_URL no definida.');
+  if (!ACTIVE_DB_URL) {
+    console.error('⏭️ InitDB omitido: ni DATABASE_URL ni DATABASE_PUBLIC_URL están definidas.');
     return;
   }
 
